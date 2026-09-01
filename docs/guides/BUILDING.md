@@ -11,9 +11,9 @@ bundle follows the generated `usd-fileformat-cpp` OpenStrata template.
 - OpenUSD 26.08 for stage emission and plugin targets
 - OpenStrata CLI 0.22.8 when building or testing through the workspace manifests
 
-The intended JSON parser and triangulation dependencies will be pinned by the
-root build and documented in `THIRD_PARTY_NOTICES.md`; do not install arbitrary
-system versions until those choices are committed.
+The JSON parser is pinned by the root build and documented in
+`THIRD_PARTY_NOTICES.md`. Triangulation is project-owned. Do not substitute
+arbitrary system dependencies without updating the build and notices.
 
 ## Core-only build
 
@@ -56,6 +56,10 @@ ost plugin build plugins/vector-geojson
 ost plugin doctor plugins/vector-geojson
 ost plugin test plugins/vector-geojson --up-to 5
 ```
+
+Run `clang-format` with the repository `.clang-format` before submitting C++
+changes. The style is LLVM-based, uses four-space indentation, and targets
+C++17.
 
 Build instructions must be updated in the same change that introduces or
 renames an option, target, dependency, or required environment variable.

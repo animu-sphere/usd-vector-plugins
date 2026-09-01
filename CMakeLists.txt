@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(usd-vector-plugins VERSION 0.1.0 LANGUAGES CXX)
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION"
+     _usd_vector_version LIMIT_COUNT 1)
+string(STRIP "${_usd_vector_version}" _usd_vector_version)
+
+project(usd-vector-plugins
+    VERSION ${_usd_vector_version}
+    DESCRIPTION "OpenUSD file format plugins and libraries for GIS vector data"
+    LANGUAGES CXX)
 
 option(USDVECTOR_ENABLE_OPENUSD "Build OpenUSD-dependent targets" OFF)
 option(USDVECTOR_USE_SYSTEM_NLOHMANN_JSON
@@ -22,3 +29,6 @@ if(USDVECTOR_ENABLE_OPENUSD)
     find_package(pxr REQUIRED CONFIG)
     add_subdirectory(plugins/vector-geojson)
 endif()
+
+install(FILES LICENSE NOTICE THIRD_PARTY_NOTICES.md
+    DESTINATION "share/${PROJECT_NAME}")

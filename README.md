@@ -5,6 +5,10 @@ GeoJSON is the first format target. The project keeps transport and
 reprojection outside the reader and authors deterministic OpenUSD geometry
 through a separate authoring layer.
 
+This project is licensed under the [Apache License 2.0](LICENSE). Third-party
+components and their licenses are listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## Status
 
 The OpenUSD-independent `usdVectorCore` model and buffered `usdGeoJson` reader
@@ -19,6 +23,8 @@ template and verified against the pinned runtime.
 | M2 | `usdGeoJson` FeatureCollection reader and MVP geometries | done |
 | M3 | OpenUSD authoring, triangulation, local-origin metadata | done |
 | M4 | FileFormat registration, `ArAsset`, arguments, integration tests | done: OpenStrata L0-L5 verified |
+| M5 | Scalability baseline and evidence-led bounded-memory improvements | planned |
+| M6 | FlatGeobuf and indexed partial-read investigation | deferred |
 
 ## Building
 
@@ -42,3 +48,5 @@ ost test
 See [docs/README.md](docs/README.md) for the architecture and capability
 contracts. External dependencies are bounded under [third_party](third_party)
 and documented in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+The ordered implementation plan is documented in
+[docs/roadmap/IMPLEMENTATION_PLAN.md](docs/roadmap/IMPLEMENTATION_PLAN.md).

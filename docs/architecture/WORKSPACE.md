@@ -1,6 +1,6 @@
 # Workspace contract
 
-This document fixes planned module identities, responsibilities, and legal
+This document fixes module identities, responsibilities, and legal
 dependency directions. A structural change that contradicts it must update
 this contract first.
 
@@ -41,7 +41,7 @@ any plugin          -> another plugin, HTTP client, cloud SDK
 any dependency cycle
 ```
 
-Planned package identities:
+Package identities:
 
 | Identity | CMake target | C++ namespace |
 | --- | --- | --- |
@@ -68,6 +68,11 @@ plugins/vector-geojson/
 
 The root owns composition, CI, workspace versioning, shared licensing,
 documentation, notices, and aggregate tests. It does not own module logic.
+
+Published artifacts remain independently versioned and runtime-composable.
+`usd-geospatial-runtime` pins and composes the vector artifact; this repository
+does not acquire resolver, raster, point-cloud, or runtime-bootstrap
+dependencies to make that composition possible.
 
 ## 4. Authored stage contract
 

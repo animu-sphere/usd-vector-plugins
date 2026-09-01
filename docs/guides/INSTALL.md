@@ -13,6 +13,10 @@ OpenStrata `usd-fileformat-cpp` template.
   openstrata.plugin.yaml       bundle contract
   openstrata.scaffold.yaml     template provenance
   tests/fixtures/              smoke, negative, and golden fixtures
+  share/usd-vector-plugins/
+    LICENSE                    Apache License 2.0 terms
+    NOTICE                     project attribution
+    THIRD_PARTY_NOTICES.md     bundled dependency notices
 ```
 
 The installed `plugInfo.json` uses paths relative to its bundle. Installation
@@ -38,6 +42,10 @@ open a source.
 Do not copy only the shared library; registration metadata and relative
 resources are part of the artifact.
 
+The distributable artifact also carries the repository `LICENSE`, `NOTICE`,
+and `THIRD_PARTY_NOTICES.md`. Packaging is incomplete if any of these files is
+missing.
+
 ## Compatibility
 
 The plugin must be built against an ABI-compatible OpenUSD runtime and C++
@@ -45,3 +53,7 @@ toolchain. This bundle targets OpenUSD `>=26.08,<27.0`, platform `cy2026`, and
 profile `usd`. Release artifacts are target-qualified rather than advertised
 as universally portable. Resolver implementations are installed separately
 and compose at runtime through OpenUSD.
+
+`usd-geospatial-runtime` consumes a published vector artifact and owns the
+composition lock, reconstruction, cross-component probes, provenance, and
+SBOM. It does not consume this repository as a source dependency.

@@ -79,11 +79,12 @@ assigned by the module that presents the error.
 
 | Code | Default severity | Condition |
 | --- | --- | --- |
-| `VGJSON001` | Error | Source cannot be resolved, opened, or read |
-| `VGJSON002` | Error | Unknown, invalid, or conflicting file-format argument |
-| `VGJSON003` | Error | Source is not readable as GeoJSON |
-| `VGJSON004` | Error | Reader failure prevented a valid layer |
-| `VGJSON005` | Error | Authoring failure prevented a valid layer |
+| `VGJSON001` | Error | Unknown, invalid, or conflicting file-format argument |
+| `VGJSON002` | Error | Source cannot be opened, supplied, or read |
+
+`VGJSON003` through `VGJSON005` remain reserved. Reader and authoring failures
+currently retain their owning `GJSONxxx` or `VECxxx` code when projected into
+OpenUSD rather than being collapsed into a plugin code.
 
 OpenUSD presentation includes the code and safe source identity, for example:
 
