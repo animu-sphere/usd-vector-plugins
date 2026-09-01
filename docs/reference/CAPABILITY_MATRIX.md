@@ -52,7 +52,7 @@ not planned                   explicitly outside project scope
 | --- | --- | --- |
 | String and integer feature IDs | implemented | original type preserved |
 | Missing IDs | implemented | stable sequential names |
-| Duplicate IDs | planned | warning plus deterministic suffix; error in strict mode |
+| Duplicate IDs | implemented | warning plus deterministic suffix; error in strict mode |
 | bool, integer, number, string properties | implemented | typed USD attributes |
 | null properties | implemented | explicit null-name metadata |
 | homogeneous scalar arrays | implemented | typed USD arrays |

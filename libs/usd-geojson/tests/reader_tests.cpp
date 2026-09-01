@@ -86,6 +86,24 @@ void TestStableDiagnostics() {
     assert(!unsupported.Succeeded());
     assert(unsupported.diagnostics[0].code ==
            usdvector::DiagnosticCode::UnsupportedGeometryType);
+
+    auto geometryForeignMember = usdvector::geojson::Reader::Create(
+        R"({"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[0,0],"vendor":"x"},"properties":{}}]})");
+    assert(geometryForeignMember.Succeeded());
+    assert(geometryForeignMember.diagnostics.size() == 1);
+    assert(geometryForeignMember.diagnostics[0].code ==
+           usdvector::DiagnosticCode::ForeignMemberLimit);
+    assert(geometryForeignMember.diagnostics[0].severity ==
+           usdvector::Severity::Warning);
+
+    auto strictGeometryForeignMember = usdvector::geojson::Reader::Create(
+        R"({"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[0,0],"vendor":"x"},"properties":{}}]})",
+        usdvector::geojson::ParseOptions{true});
+    assert(!strictGeometryForeignMember.Succeeded());
+    assert(strictGeometryForeignMember.diagnostics[0].code ==
+           usdvector::DiagnosticCode::ForeignMemberLimit);
+    assert(strictGeometryForeignMember.diagnostics[0].severity ==
+           usdvector::Severity::Error);
 }
 
 }  // namespace

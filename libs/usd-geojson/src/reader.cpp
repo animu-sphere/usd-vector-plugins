@@ -39,7 +39,8 @@ void AddUnknownMemberDiagnostics(
             diagnostics.push_back(Issue(
                 DiagnosticCode::ForeignMemberLimit,
                 options.strict ? Severity::Error : Severity::Warning,
-                "foreign member was not preserved by the current reader", featureIndex));
+                "geometry foreign member cannot be preserved by the MVP model",
+                featureIndex));
         }
     }
 }
