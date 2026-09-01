@@ -99,7 +99,6 @@ bool AuthorCurves(const UsdStageRefPtr& stage, const SdfPath& path,
     return SetAttribute(prim.CreatePointsAttr(), VtValue(points)) &&
            SetAttribute(prim.CreateCurveVertexCountsAttr(), VtValue(counts)) &&
            SetAttribute(prim.CreateTypeAttr(), VtValue(UsdGeomTokens->linear)) &&
-           SetAttribute(prim.CreateBasisAttr(), VtValue(UsdGeomTokens->linear)) &&
            SetAttribute(prim.CreateWrapAttr(), VtValue(UsdGeomTokens->nonperiodic));
 }
 
@@ -112,15 +111,16 @@ bool AuthorMesh(const UsdStageRefPtr& stage, const SdfPath& path,
     }
     VtArray<std::int32_t> counts;
     VtArray<std::int32_t> indices;
+    if (geometry.points.size() >
+        static_cast<std::size_t>(std::numeric_limits<std::int32_t>::max())) {
+        return false;
+    }
     counts.reserve(geometry.triangles.size());
     indices.reserve(geometry.triangles.size() * 3);
     for (const Triangle& triangle : geometry.triangles) {
         if (triangle.a >= geometry.points.size() ||
             triangle.b >= geometry.points.size() ||
-            triangle.c >= geometry.points.size() ||
-            geometry.points.size() >
-                static_cast<std::size_t>(
-                    std::numeric_limits<std::int32_t>::max())) {
+            triangle.c >= geometry.points.size()) {
             return false;
         }
         counts.push_back(3);

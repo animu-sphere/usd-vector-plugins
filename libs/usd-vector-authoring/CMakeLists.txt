@@ -26,15 +26,23 @@ if(USDVECTOR_ENABLE_OPENUSD)
         target_link_libraries(usd-vector-authoring PRIVATE pxr::usdGeom)
     elseif(TARGET usdGeom)
         target_link_libraries(usd-vector-authoring PRIVATE usdGeom)
-    else()
+    elseif(PXR_LIBRARIES)
         target_link_libraries(usd-vector-authoring PRIVATE ${PXR_LIBRARIES})
+    else()
+        message(FATAL_ERROR
+            "OpenUSD was found, but no usable usdGeom target or PXR_LIBRARIES was provided")
     endif()
 endif()
 
 set_target_properties(usd-vector-authoring PROPERTIES OUTPUT_NAME usdVectorAuthoring)
 
 install(TARGETS usd-vector-authoring)
-install(DIRECTORY include/ DESTINATION include)
+install(DIRECTORY include/ DESTINATION include
+    PATTERN "usd_authoring.h" EXCLUDE)
+if(USDVECTOR_ENABLE_OPENUSD)
+    install(FILES include/usdvector/authoring/usd_authoring.h
+            DESTINATION include/usdvector/authoring)
+endif()
 
 if(BUILD_TESTING)
     add_executable(usd-vector-authoring-tests tests/authoring_tests.cpp)

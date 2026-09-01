@@ -1,7 +1,10 @@
 #include "usdvector/authoring/usd_authoring.h"
 
 #include <pxr/base/gf/vec3d.h>
+#include <pxr/base/tf/token.h>
+#include <pxr/usd/usdGeom/basisCurves.h>
 #include <pxr/usd/usdGeom/mesh.h>
+#include <pxr/usd/usdGeom/tokens.h>
 
 #include <cassert>
 #include <cstdint>
@@ -42,8 +45,35 @@ void TestStageMapping() {
     assert(origin.Get<pxr::GfVec3d>() == pxr::GfVec3d(1.0, 1.0, 0.0));
 }
 
+void TestLinearCurveMapping() {
+    usdvector::Feature feature;
+    feature.id = usdvector::FeatureId{std::string{"line 1"}};
+    feature.geometry = usdvector::Geometry{usdvector::LineString{
+        {{0.0, 0.0}, {1.0, 1.0}, {2.0, 0.0}}}};
+    const auto plan = usdvector::authoring::BuildAuthoringPlan(
+        usdvector::DatasetMetadata{"GeoJSON", std::nullopt, std::nullopt,
+                                   std::nullopt, 1},
+        {feature});
+    assert(plan.Succeeded());
+
+    const auto stage = usdvector::authoring::BuildUsdStage(*plan.value);
+    assert(stage.Succeeded());
+    const pxr::UsdPrim curve = stage.value->GetPrimAtPath(
+        pxr::SdfPath("/Vector/Features/id_line_1"));
+    assert(curve.IsA<pxr::UsdGeomBasisCurves>());
+
+    pxr::TfToken type;
+    pxr::TfToken basis;
+    assert(curve.GetAttribute(pxr::TfToken("type")).Get(&type));
+    assert(type == pxr::UsdGeomTokens->linear);
+    assert(curve.GetAttribute(pxr::TfToken("basis")).Get(&basis));
+    assert(basis == pxr::UsdGeomTokens->bezier);
+    assert(!curve.GetAttribute(pxr::TfToken("basis")).HasAuthoredValue());
+}
+
 }  // namespace
 
 int main() {
     TestStageMapping();
+    TestLinearCurveMapping();
 }
