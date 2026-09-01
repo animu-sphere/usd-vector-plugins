@@ -4,15 +4,16 @@ This document fixes planned module identities, responsibilities, and legal
 dependency directions. A structural change that contradicts it must update
 this contract first.
 
-Status: all components below are `planned`. Directories are created with their
-first tested capability rather than as empty placeholders.
+Status: `usdVectorCore` and `usdGeoJson` have tested library capabilities.
+OpenUSD-dependent components remain `planned`. Directories are created with
+their first tested capability rather than as empty placeholders.
 
 ## 1. Components
 
 | Identity | Directory | Kind | Status | Responsibility |
 | --- | --- | --- | --- | --- |
-| `usdVectorCore` | `libs/usd-vector-core` | plain CMake library | planned | Format- and USD-independent geometry, features, properties, bounds, metadata, validation, source interfaces, and shared diagnostic values. |
-| `usdGeoJson` | `libs/usd-geojson` | plain CMake library | planned | GeoJSON syntax, geometry/property decoding, GeoJSON validation, and conversion into `usdVectorCore`. |
+| `usdVectorCore` | `libs/usd-vector-core` | plain CMake library | implemented | Format- and USD-independent geometry, features, properties, bounds, metadata, validation, source interfaces, identifiers, and shared diagnostic values. |
+| `usdGeoJson` | `libs/usd-geojson` | plain CMake library | implemented | GeoJSON syntax, geometry/property decoding, GeoJSON validation, and conversion into `usdVectorCore`. |
 | `usdVectorAuthoring` | `libs/usd-vector-authoring` | OpenUSD-linked library | planned | Stable prim hierarchy, naming, typed attributes, triangulation, local-origin policy, and dataset metadata. |
 | `vector-geojson` | `plugins/vector-geojson` | OpenUSD FileFormat bundle | planned | Registration, argument parsing, `ArAsset` acquisition, reader/authoring composition, and plugin diagnostics. |
 | `usd-vector-convert` | `tools/usd-vector-convert` | CLI | deferred | Explicit reprojection, partitioning, payload generation, and long-running conversion. |

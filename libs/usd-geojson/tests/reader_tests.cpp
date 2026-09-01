@@ -1,0 +1,92 @@
+#include "usdvector/geojson/reader.h"
+
+#include "usdvector/core/geometry.h"
+
+#include <cassert>
+#include <cstdint>
+#include <exception>
+#include <iostream>
+#include <string>
+#include <variant>
+
+namespace {
+
+const char* Sample() {
+    return R"json({
+        "type": "FeatureCollection",
+        "bbox": [-10, -10, 10, 10],
+        "features": [
+            {"type":"Feature","id":"point","geometry":{"type":"Point","coordinates":[1,2]},"properties":{"name":"A","count":-3,"large":9223372036854775808,"nested":{"enabled":true},"values":[1,2]}},
+            {"type":"Feature","geometry":{"type":"MultiPoint","coordinates":[[0,0],[1,1]]},"properties":null},
+            {"type":"Feature","geometry":{"type":"LineString","coordinates":[[0,0],[1,1]]},"properties":{}},
+            {"type":"Feature","geometry":{"type":"MultiLineString","coordinates":[[[0,0],[1,1]]]},"properties":{}},
+            {"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[0,0],[4,0],[4,4],[0,4],[0,0]],[[1,1],[1,2],[2,2],[1,1]]]},"properties":{}},
+            {"type":"Feature","geometry":{"type":"MultiPolygon","coordinates":[[[[5,5],[6,5],[6,6],[5,5]]]]},"properties":{}},
+            {"type":"Feature","geometry":null,"properties":{}}
+        ]
+    })json";
+}
+
+void TestFeatureCollectionAndProperties() {
+    auto result = usdvector::geojson::Reader::Create(Sample());
+    assert(result.Succeeded());
+    auto metadata = result.value->ReadMetadata();
+    assert(metadata.Succeeded());
+    assert(metadata.value->format == "GeoJSON");
+    assert(metadata.value->featureCount == 7);
+    assert(metadata.value->declaredBounds.has_value());
+    assert(metadata.value->computedBounds.has_value());
+
+    auto first = result.value->ReadNext();
+    assert(first.Succeeded() && first.value->has_value());
+    assert(usdvector::GetGeometryType(first.value->value().geometry) ==
+           usdvector::GeometryType::Point);
+    assert(first.value->value().id.has_value());
+    assert(std::get<std::string>(*first.value->value().id) == "point");
+    assert(std::get<std::int64_t>(first.value->value().properties.at("count").value) == -3);
+        assert(std::get<std::uint64_t>(first.value->value().properties.at("large").value) ==
+            9223372036854775808ULL);
+    const auto& nested = std::get<usdvector::PropertyValue::Object>(
+        first.value->value().properties.at("nested").value);
+    assert(std::get<bool>(nested.at("enabled").value));
+    assert(std::get<usdvector::PropertyValue::Array>(
+               first.value->value().properties.at("values").value)
+               .size() == 2);
+}
+
+void TestAllGeometryFamiliesAndEndOfStream() {
+    auto result = usdvector::geojson::Reader::Create(Sample());
+    assert(result.Succeeded());
+    for (int index = 0; index < 7; ++index) {
+        auto feature = result.value->ReadNext();
+        assert(feature.Succeeded() && feature.value->has_value());
+    }
+    auto end = result.value->ReadNext();
+    assert(end.Succeeded() && !end.value->has_value());
+}
+
+void TestStableDiagnostics() {
+    auto malformed = usdvector::geojson::Reader::Create("{");
+    assert(!malformed.Succeeded());
+    assert(malformed.diagnostics.size() == 1);
+    assert(malformed.diagnostics[0].code == usdvector::DiagnosticCode::MalformedJson);
+
+    auto unsupported = usdvector::geojson::Reader::Create(
+        R"({"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"GeometryCollection","geometries":[]},"properties":{}}]})");
+    assert(!unsupported.Succeeded());
+    assert(unsupported.diagnostics[0].code ==
+           usdvector::DiagnosticCode::UnsupportedGeometryType);
+}
+
+}  // namespace
+
+int main() {
+    try {
+        TestFeatureCollectionAndProperties();
+        TestAllGeometryFamiliesAndEndOfStream();
+        TestStableDiagnostics();
+    } catch (const std::exception& error) {
+        std::cerr << error.what() << '\n';
+        return 1;
+    }
+}

@@ -1,8 +1,8 @@
 # Capability Matrix
 
 This matrix distinguishes contractual intent from working code. The repository
-currently contains documentation only, so every implementation capability is
-`planned` or explicitly out of scope.
+contains tested core and GeoJSON reader capabilities; OpenUSD integration
+remains `planned` until its owning module is implemented.
 
 Status vocabulary:
 
@@ -18,13 +18,13 @@ not planned                   explicitly outside project scope
 
 | Capability | Extension/source | Status | Phase |
 | --- | --- | --- | --- |
-| GeoJSON FeatureCollection | `.geojson` | planned | 1 |
-| GeoJSON FeatureCollection in generic JSON | `.json` | planned | 1, accepted only after bounded content probing |
+| GeoJSON FeatureCollection | `.geojson` | implemented, not connected | 1 |
+| GeoJSON FeatureCollection in generic JSON | `.json` | implemented, not connected | 1, accepted only after bounded content probing |
 | FlatGeobuf | `.fgb` | deferred | 2 |
 | Shapefile | `.shp` plus sidecars | deferred | 3 |
 | GeoPackage | `.gpkg` | deferred | 4 |
 | Local file | filesystem | planned | 1 |
-| In-memory source | test/embedding | planned | 1 |
+| In-memory source | test/embedding | implemented, not connected | 1 |
 | Resolver-provided `ArAsset` | any resolver identity | planned | 1 |
 | HTTP implemented here | URL | not planned | resolver responsibility |
 | Vector writing | any | not planned | separate milestone after read stability |
@@ -33,15 +33,15 @@ not planned                   explicitly outside project scope
 
 | Capability | Status | Notes |
 | --- | --- | --- |
-| FeatureCollection | planned | MVP root object |
-| Feature | planned | Read through collection |
+| FeatureCollection | implemented, not connected | MVP root object |
+| Feature | implemented, not connected | Read through collection |
 | Bare Geometry root | deferred | Not needed for first plugin milestone |
-| Point / MultiPoint | planned | `UsdGeomPoints` |
-| LineString / MultiLineString | planned | linear `UsdGeomBasisCurves` |
-| Polygon | planned | triangulated `UsdGeomMesh` |
-| Polygon holes | planned | included in triangulation |
-| MultiPolygon | planned | Xform with Mesh children |
-| Null geometry | planned | metadata-only feature Xform |
+| Point / MultiPoint | implemented, not connected | `UsdGeomPoints` |
+| LineString / MultiLineString | implemented, not connected | linear `UsdGeomBasisCurves` |
+| Polygon | implemented, not connected | triangulated `UsdGeomMesh` |
+| Polygon holes | implemented, not connected | included in triangulation |
+| MultiPolygon | implemented, not connected | Xform with Mesh children |
+| Null geometry | implemented, not connected | metadata-only feature Xform |
 | GeometryCollection | deferred | Stable hierarchy still to be designed |
 | Self-intersection repair | not planned | invalid input is diagnosed |
 
@@ -49,22 +49,22 @@ not planned                   explicitly outside project scope
 
 | Capability | Status | Notes |
 | --- | --- | --- |
-| String and integer feature IDs | planned | original type preserved |
-| Missing IDs | planned | stable sequential names |
+| String and integer feature IDs | implemented, not connected | original type preserved |
+| Missing IDs | implemented, not connected | stable sequential names |
 | Duplicate IDs | planned | warning plus deterministic suffix; error in strict mode |
-| bool, integer, number, string properties | planned | typed USD attributes |
-| null properties | planned | explicit null-name metadata |
-| homogeneous scalar arrays | planned | typed USD arrays |
-| nested or heterogeneous values | planned | canonical JSON fallback |
-| Dataset and feature `bbox` | planned | kept distinct from computed bounds |
+| bool, integer, number, string properties | implemented, not connected | typed USD attributes |
+| null properties | implemented, not connected | explicit null-name metadata |
+| homogeneous scalar arrays | implemented, not connected | typed USD arrays |
+| nested or heterogeneous values | implemented, not connected | canonical JSON fallback |
+| Dataset and feature `bbox` | implemented, not connected | kept distinct from computed bounds |
 | Foreign members | planned | preserved subject to documented limits |
-| Legacy GeoJSON `crs` | planned | preserved and warned; no reprojection |
+| Legacy GeoJSON `crs` | implemented, not connected | preserved and warned; no reprojection |
 
 ## Coordinates and authoring
 
 | Capability | Status | Notes |
 | --- | --- | --- |
-| Double-precision internal coordinates | planned | all geometry processing |
+| Double-precision internal coordinates | implemented, not connected | all geometry processing |
 | Deterministic local origin | planned | bounds-center origin |
 | Source-coordinate recovery metadata | planned | `vector:localOrigin` and source bounds |
 | Reprojection | not planned | explicit converter/host responsibility |

@@ -2,8 +2,9 @@
 
 This documentation is organized by responsibility so current contracts,
 procedures, and future work do not drift into one another. The repository is
-at the contract-design stage: unless a document says otherwise, capabilities
-described here are planned rather than implemented.
+at the first reader implementation stage: `usdVectorCore` and the buffered
+GeoJSON reader are implemented; OpenUSD authoring and plugin integration
+remain planned unless a document says otherwise.
 
 | Category | Answers | Start here |
 | --- | --- | --- |

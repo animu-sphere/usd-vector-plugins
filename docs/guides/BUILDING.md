@@ -1,7 +1,7 @@
 # Building
 
-Status: the build system and source targets described here are planned. This
-guide becomes executable as Milestones 0 and 1 land.
+Status: the core-only build described here is executable. OpenUSD and plugin
+targets remain planned until their milestones land.
 
 ## Requirements
 

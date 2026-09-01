@@ -1,0 +1,32 @@
+{
+  "lock_version": 1,
+  "runtime": {
+    "id": "openstrata-cy2026-windows-x86_64-py313-usd",
+    "platform": "cy2026",
+    "profile": "usd",
+    "variant": {
+      "os": "windows",
+      "arch": "x86_64",
+      "abi": {
+        "msvc": {
+          "toolset": "143"
+        }
+      },
+      "python": "313"
+    },
+    "digest": "sha256:3a4e399351763a5ef55575e5341b28adabf1ffe6cf55a1d3cc315e19aba9dbff"
+  },
+  "python": {
+    "version": "3.13.x",
+    "abi": "cpython-313-x86_64-windows-msvc",
+    "manager": "uv"
+  },
+  "extensions": [
+    {
+      "id": "openusd",
+      "version": "26.08",
+      "features": ["core"]
+    }
+  ],
+  "validation": "passed"
+}

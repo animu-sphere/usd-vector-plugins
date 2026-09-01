@@ -1,0 +1,17 @@
+name: core
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build/core -G Ninja -DUSDVECTOR_ENABLE_OPENUSD=OFF
+      - name: Build
+        run: cmake --build build/core
+      - name: Test
+        run: ctest --test-dir build/core --output-on-failure
