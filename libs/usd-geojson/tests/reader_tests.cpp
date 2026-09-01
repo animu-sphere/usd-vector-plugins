@@ -90,10 +90,13 @@ void TestStableDiagnostics() {
     auto geometryForeignMember = usdvector::geojson::Reader::Create(
         R"({"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[0,0],"vendor":"x"},"properties":{}}]})");
     assert(geometryForeignMember.Succeeded());
-    assert(geometryForeignMember.diagnostics.size() == 1);
-    assert(geometryForeignMember.diagnostics[0].code ==
+    auto geometryForeignMemberMetadata =
+        geometryForeignMember.value->ReadMetadata();
+    assert(geometryForeignMemberMetadata.Succeeded());
+    assert(geometryForeignMemberMetadata.diagnostics.size() == 1);
+    assert(geometryForeignMemberMetadata.diagnostics[0].code ==
            usdvector::DiagnosticCode::ForeignMemberLimit);
-    assert(geometryForeignMember.diagnostics[0].severity ==
+    assert(geometryForeignMemberMetadata.diagnostics[0].severity ==
            usdvector::Severity::Warning);
 
     auto strictGeometryForeignMember = usdvector::geojson::Reader::Create(
