@@ -1,0 +1,49 @@
+#include "usdvector/authoring/usd_authoring.h"
+
+#include <pxr/base/gf/vec3d.h>
+#include <pxr/usd/usdGeom/mesh.h>
+
+#include <cassert>
+#include <cstdint>
+#include <string>
+
+PXR_NAMESPACE_USING_DIRECTIVE
+
+namespace {
+
+void TestStageMapping() {
+    usdvector::Feature feature;
+    feature.id = usdvector::FeatureId{std::string{"road 1"}};
+    feature.geometry = usdvector::Geometry{usdvector::Polygon{
+        {{0.0, 0.0}, {2.0, 0.0}, {2.0, 2.0}, {0.0, 2.0}}, {}}};
+    feature.properties.emplace("road name",
+                               usdvector::PropertyValue{std::int64_t{7}});
+    const auto plan = usdvector::authoring::BuildAuthoringPlan(
+        usdvector::DatasetMetadata{"GeoJSON", std::nullopt, std::nullopt,
+                                   std::nullopt, 1},
+        {feature});
+    assert(plan.Succeeded());
+
+    const auto stage = usdvector::authoring::BuildUsdStage(*plan.value);
+    assert(stage.Succeeded());
+    const pxr::UsdPrim vector = stage.value->GetPrimAtPath(pxr::SdfPath("/Vector"));
+    const pxr::UsdPrim mesh = stage.value->GetPrimAtPath(
+        pxr::SdfPath("/Vector/Features/id_road_1"));
+    assert(vector.IsValid());
+    assert(mesh.IsValid());
+    assert(mesh.IsA<pxr::UsdGeomMesh>());
+    std::int64_t roadName = 0;
+    assert(mesh.GetAttribute(pxr::TfToken("vector:properties:road_name"))
+               .Get(&roadName));
+    assert(roadName == 7);
+    const pxr::VtValue origin =
+        vector.GetCustomDataByKey(pxr::TfToken("vector:localOrigin"));
+    assert(!origin.IsEmpty());
+    assert(origin.Get<pxr::GfVec3d>() == pxr::GfVec3d(1.0, 1.0, 0.0));
+}
+
+}  // namespace
+
+int main() {
+    TestStageMapping();
+}

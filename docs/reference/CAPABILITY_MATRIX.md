@@ -2,8 +2,8 @@
 
 This matrix distinguishes contractual intent from working code. The repository
 contains tested core, GeoJSON reader, and OpenUSD-independent authoring-plan
-capabilities; OpenUSD stage emission and plugin integration remain `planned`
-until their owning modules are implemented.
+capabilities. OpenUSD stage emission is implemented in the optional authoring
+path; plugin integration remains `planned` until its owning module is built.
 
 Status vocabulary:
 
@@ -66,11 +66,11 @@ not planned                   explicitly outside project scope
 | Capability | Status | Notes |
 | --- | --- | --- |
 | Double-precision internal coordinates | implemented, not connected | all geometry processing |
-| Deterministic local origin | planned | bounds-center origin |
-| Source-coordinate recovery metadata | planned | `vector:localOrigin` and source bounds |
+| Deterministic local origin | implemented, not connected | bounds-center origin in the authoring plan and stage emitter |
+| Source-coordinate recovery metadata | implemented, not connected | `vector:localOrigin` and source bounds |
 | Reprojection | not planned | explicit converter/host responsibility |
-| One logical prim per feature | planned | identity before batching |
-| Deterministic prim paths | planned | source ID, then sequence |
+| One logical prim per feature | implemented, not connected | identity before geometry authoring |
+| Deterministic prim paths | implemented, not connected | source ID, then sequence |
 | Renderer-specific styling | not planned | host responsibility |
 
 ## File-format arguments

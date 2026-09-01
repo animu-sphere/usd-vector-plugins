@@ -1,8 +1,8 @@
 # Building
 
 Status: the core-only build described here is executable and includes the
-OpenUSD-independent authoring plan library. OpenUSD emission and plugin
-targets remain planned until their milestones land.
+OpenUSD-independent authoring plan library. OpenUSD stage emission is available
+when an OpenUSD installation is supplied; plugin targets remain planned.
 
 ## Requirements
 
@@ -40,9 +40,10 @@ cmake --build build/full
 ctest --test-dir build/full --output-on-failure
 ```
 
-The exact OpenUSD compatibility range will be documented once CI pins the
-first runtime. A successful compile against an unlisted version does not make
-that version supported.
+This enables the `usdVectorAuthoring` stage-emission path. The exact OpenUSD
+compatibility range will be documented once CI pins the first runtime. A
+successful compile against an unlisted version does not make that version
+supported.
 
 ## OpenStrata build
 
