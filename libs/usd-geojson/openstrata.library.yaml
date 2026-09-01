@@ -5,3 +5,7 @@ library:
 cmake:
   package: usdGeoJson
   target: usdvector::geojson
+requires:
+  libraries:
+    - id: usdVectorCore
+      version: ">=0.1,<0.2"

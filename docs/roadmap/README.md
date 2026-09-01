@@ -5,11 +5,11 @@ count. Status is tracked against acceptance evidence, not directory presence.
 
 | Milestone | Outcome | Status |
 | --- | --- | --- |
-| M0 | Documentation contracts, root project skeleton, CI, licensing, notices | in progress |
+| M0 | Documentation contracts, root project skeleton, CI, licensing, notices | implemented |
 | M1 | `usdVectorCore`: model, bounds, validation, diagnostics, identifiers | implemented |
 | M2 | `usdGeoJson`: FeatureCollection, all MVP geometries, properties, fixtures | implemented |
-| M3 | `usdVectorAuthoring`: Points, Curves, Mesh triangulation, metadata, origin | in progress: tested plan and optional stage emission |
-| M4 | `vector-geojson`: registration, ArAsset adapter, arguments, integration tests | planned |
+| M3 | `usdVectorAuthoring`: Points, Curves, Mesh triangulation, metadata, origin | implemented |
+| M4 | `vector-geojson`: registration, ArAsset adapter, arguments, integration tests | implemented: OpenStrata L0-L5 verified |
 | M5 | Scalability measurement and evidence-led streaming improvements | planned |
 | M6 | FlatGeobuf investigation and indexed partial-read contract | deferred |
 

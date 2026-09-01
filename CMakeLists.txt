@@ -19,4 +19,6 @@ add_subdirectory(libs/usd-vector-authoring)
 
 if(USDVECTOR_ENABLE_OPENUSD)
     message(STATUS "Building OpenUSD-dependent authoring targets")
+    find_package(pxr REQUIRED CONFIG)
+    add_subdirectory(plugins/vector-geojson)
 endif()

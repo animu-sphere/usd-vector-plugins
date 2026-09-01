@@ -1,0 +1,35 @@
+#usda 1.0
+(
+    doc = """Generated from Composed Stage of root layer C:\\dev\\usd-vector-plugins\\plugins\\vector-geojson\\tests\\fixtures\\basic.geojson
+"""
+)
+
+def Xform "Vector" (
+    customData = {
+        dictionary vector = {
+            uint64 featureCount = 1
+            string format = "GeoJSON"
+            double3 localOrigin = (0, 0, 0)
+            double[] sourceBounds = [0, 0, 0, 0]
+        }
+    }
+)
+{
+    double3 xformOp:translate = (0, 0, 0)
+    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+    def Xform "Features"
+    {
+        def Points "id_point_1" (
+            customData = {
+                dictionary vector = {
+                    string featureId = "point-1"
+                }
+            }
+        )
+        {
+            point3f[] points = [(0, 0, 0)]
+            custom string vector:properties:name = "origin"
+        }
+    }
+}

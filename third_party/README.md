@@ -5,8 +5,9 @@ vector readers. Dependency-specific target names and headers stay below this
 boundary; project libraries consume the stable `usdvector::` targets instead.
 
 The current dependency is nlohmann/json 3.11.3 for GeoJSON decoding. By
-default CMake obtains the pinned source with FetchContent. Builds with a
-managed package can set `USDVECTOR_USE_SYSTEM_NLOHMANN_JSON=ON` and provide a
+default CMake uses the vendored headers under `nlohmann_json/include`, so a
+normal build does not fetch content from the network. Builds with a managed
+package can set `USDVECTOR_USE_SYSTEM_NLOHMANN_JSON=ON` and provide a
 compatible `nlohmann_json` CMake package.
 
 No transport, resolver, OpenUSD, or reprojection dependency belongs here.

@@ -1,0 +1,7 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(usdVectorCore)
+
+include("${CMAKE_CURRENT_LIST_DIR}/usdVectorAuthoringTargets.cmake")
+check_required_components(usdVectorAuthoring)
