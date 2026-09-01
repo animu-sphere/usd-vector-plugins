@@ -58,7 +58,7 @@ not planned                   explicitly outside project scope
 | homogeneous scalar arrays | implemented | typed USD arrays |
 | nested or heterogeneous values | implemented | canonical JSON fallback |
 | Dataset and feature `bbox` | implemented | kept distinct from computed bounds |
-| Foreign members | planned | preserved subject to documented limits |
+| Foreign members | implemented | canonical JSON in `vector:foreignMembers`; geometry-object extras remain diagnosed |
 | Legacy GeoJSON `crs` | implemented | preserved and warned; no reprojection |
 
 ## Coordinates and authoring

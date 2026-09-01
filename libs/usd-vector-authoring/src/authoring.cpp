@@ -397,6 +397,7 @@ Result<AuthoringPlan> BuildAuthoringPlan(
                                    : MakeFeatureName(featureIndex),
             usedFeatureNames, diagnostics, featureIndex, feature, options.strict);
         featurePlan.geometry = std::move(*geometry.value);
+        featurePlan.foreignMembers = feature.foreignMembers;
         NormalizeProperties(feature.properties, featurePlan, diagnostics,
                             featureIndex, feature);
         plan.features.push_back(std::move(featurePlan));

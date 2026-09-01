@@ -26,6 +26,7 @@ struct PropertyValue {
 };
 
 using Properties = std::map<std::string, PropertyValue>;
+using ForeignMembers = Properties;
 using FeatureId = std::variant<std::string, std::int64_t, std::uint64_t>;
 
 struct Feature {
@@ -33,6 +34,7 @@ struct Feature {
     Geometry geometry;
     Properties properties;
     std::optional<Bounds> declaredBounds;
+    ForeignMembers foreignMembers;
 };
 
 struct DatasetMetadata {
@@ -41,6 +43,7 @@ struct DatasetMetadata {
     std::optional<Bounds> declaredBounds;
     std::optional<std::string> crs;
     std::optional<std::uint64_t> featureCount;
+    ForeignMembers foreignMembers;
 };
 
 }  // namespace usdvector

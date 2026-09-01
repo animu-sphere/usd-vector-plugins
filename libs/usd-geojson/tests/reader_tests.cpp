@@ -15,8 +15,9 @@ const char* Sample() {
     return R"json({
         "type": "FeatureCollection",
         "bbox": [-10, -10, 10, 10],
+        "vendor": {"revision": "r3"},
         "features": [
-            {"type":"Feature","id":"point","geometry":{"type":"Point","coordinates":[1,2]},"properties":{"name":"A","count":-3,"large":9223372036854775808,"nested":{"enabled":true},"values":[1,2]}},
+            {"type":"Feature","id":"point","geometry":{"type":"Point","coordinates":[1,2]},"properties":{"name":"A","count":-3,"large":9223372036854775808,"nested":{"enabled":true},"values":[1,2]},"source_tag":"survey"},
             {"type":"Feature","geometry":{"type":"MultiPoint","coordinates":[[0,0],[1,1]]},"properties":null},
             {"type":"Feature","geometry":{"type":"LineString","coordinates":[[0,0],[1,1]]},"properties":{}},
             {"type":"Feature","geometry":{"type":"MultiLineString","coordinates":[[[0,0],[1,1]]]},"properties":{}},
@@ -36,7 +37,13 @@ void TestFeatureCollectionAndProperties() {
     assert(metadata.value->featureCount == 7);
     assert(metadata.value->declaredBounds.has_value());
     assert(metadata.value->computedBounds.has_value());
-
+    assert(std::holds_alternative<usdvector::PropertyValue::Object>(
+        metadata.value->foreignMembers.at("vendor").value));
+    assert(std::get<std::string>(
+               std::get<usdvector::PropertyValue::Object>(
+                   metadata.value->foreignMembers.at("vendor").value)
+                   .at("revision")
+                   .value) == "r3");
     auto first = result.value->ReadNext();
     assert(first.Succeeded() && first.value->has_value());
     assert(usdvector::GetGeometryType(first.value->value().geometry) ==
@@ -52,6 +59,9 @@ void TestFeatureCollectionAndProperties() {
     assert(std::get<usdvector::PropertyValue::Array>(
                first.value->value().properties.at("values").value)
                .size() == 2);
+    assert(std::get<std::string>(
+               first.value->value().foreignMembers.at("source_tag").value) ==
+           "survey");
 }
 
 void TestAllGeometryFamiliesAndEndOfStream() {

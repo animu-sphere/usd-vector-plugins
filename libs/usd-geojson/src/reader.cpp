@@ -197,6 +197,30 @@ bool ParseProperty(const Json& value, PropertyValue& property,
     return true;
 }
 
+bool ParseForeignMembers(const Json& object,
+                         std::initializer_list<const char*> knownMembers,
+                         ForeignMembers& foreignMembers,
+                         std::vector<Diagnostic>& diagnostics,
+                         std::optional<std::uint64_t> featureIndex) {
+    for (const auto& item : object.items()) {
+        bool known = false;
+        for (const char* member : knownMembers) {
+            if (item.key() == member) {
+                known = true;
+                break;
+            }
+        }
+        if (known) {
+            continue;
+        }
+        PropertyValue property;
+        if (ParseProperty(item.value(), property, diagnostics, featureIndex)) {
+            foreignMembers.emplace(item.key(), std::move(property));
+        }
+    }
+    return true;
+}
+
 bool ParseProperties(const Json& value, Properties& properties,
                      std::vector<Diagnostic>& diagnostics,
                      std::optional<std::uint64_t> featureIndex) {
@@ -372,8 +396,9 @@ Result<ParsedDocument> ParseDocument(std::string_view source,
             DiagnosticCode::UnsupportedGeoJsonRoot, Severity::Error,
             "root type must be FeatureCollection")});
     }
-    AddUnknownMemberDiagnostics(root, {"type", "features", "bbox", "crs"},
-                                options, document.diagnostics);
+    ParseForeignMembers(root, {"type", "features", "bbox", "crs"},
+                        document.metadata.foreignMembers, document.diagnostics,
+                        std::nullopt);
     if (!root.contains("features") || !root["features"].is_array()) {
         return Result<ParsedDocument>::Failure({Issue(
             DiagnosticCode::InvalidFeatureCollection, Severity::Error,
@@ -405,10 +430,11 @@ Result<ParsedDocument> ParseDocument(std::string_view source,
                 "FeatureCollection member must be a Feature object", featureIndex));
             continue;
         }
-        AddUnknownMemberDiagnostics(sourceFeature,
-                                    {"type", "id", "geometry", "properties", "bbox"},
-                                    options, document.diagnostics, featureIndex);
         Feature feature;
+        ParseForeignMembers(sourceFeature,
+                            {"type", "id", "geometry", "properties", "bbox"},
+                            feature.foreignMembers, document.diagnostics,
+                            featureIndex);
         if (sourceFeature.contains("id") && !sourceFeature["id"].is_null()) {
             const Json& id = sourceFeature["id"];
             if (id.is_string()) {

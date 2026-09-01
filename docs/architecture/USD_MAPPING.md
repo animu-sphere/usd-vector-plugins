@@ -78,6 +78,9 @@ specified above.
 | `vector:featureId` | feature | original source ID with source type preserved |
 | `vector:nullProperties` | feature | property names explicitly set to null |
 | `vector:propertyNames` | feature | normalized-to-original name dictionary |
+| `vector:foreignMembers` | `/Vector` and feature | compact canonical JSON for preserved root/feature foreign members |
 
-Foreign-member preservation keys will be published only after their typed
-representation and size limits are implemented.
+Root and feature foreign members use the same recursive value model as
+properties and are serialized as compact canonical JSON in customData. Unknown
+members on geometry objects are diagnosed because the MVP geometry model has no
+owner for geometry-level metadata.
