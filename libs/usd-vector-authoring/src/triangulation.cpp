@@ -5,14 +5,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <limits>
 #include <numeric>
+#include <set>
 #include <utility>
 
 namespace usdvector::authoring {
 namespace {
-
-constexpr double kEpsilon = 1e-12;
 
 Diagnostic Failure(std::string message, std::optional<std::uint32_t> ring = {}) {
     return {DiagnosticCode::PolygonTriangulationFailed,
@@ -27,12 +25,16 @@ Diagnostic Failure(std::string message, std::optional<std::uint32_t> ring = {}) 
             std::nullopt};
 }
 
-double Cross(const Coordinate& a, const Coordinate& b, const Coordinate& c) {
-    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+long double Cross(const Coordinate& a, const Coordinate& b,
+                  const Coordinate& c) {
+    return (static_cast<long double>(b.x) - a.x) *
+               (static_cast<long double>(c.y) - a.y) -
+           (static_cast<long double>(b.y) - a.y) *
+               (static_cast<long double>(c.x) - a.x);
 }
 
-double SignedArea(const Ring& ring) {
-    double area = 0.0;
+long double SignedArea(const Ring& ring) {
+    long double area = 0.0;
     for (std::size_t index = 0; index < ring.size(); ++index) {
         const Coordinate& current = ring[index];
         const Coordinate& next = ring[(index + 1) % ring.size()];
@@ -47,11 +49,11 @@ bool SamePoint(const Coordinate& left, const Coordinate& right) {
 
 bool OnSegment(const Coordinate& start, const Coordinate& end,
                const Coordinate& point) {
-    return std::abs(Cross(start, end, point)) <= kEpsilon &&
-           point.x >= std::min(start.x, end.x) - kEpsilon &&
-           point.x <= std::max(start.x, end.x) + kEpsilon &&
-           point.y >= std::min(start.y, end.y) - kEpsilon &&
-           point.y <= std::max(start.y, end.y) + kEpsilon;
+    return Cross(start, end, point) == 0.0L &&
+        point.x >= std::min(start.x, end.x) &&
+        point.x <= std::max(start.x, end.x) &&
+        point.y >= std::min(start.y, end.y) &&
+        point.y <= std::max(start.y, end.y);
 }
 
 bool SegmentsIntersect(const Coordinate& a, const Coordinate& b,
@@ -60,10 +62,10 @@ bool SegmentsIntersect(const Coordinate& a, const Coordinate& b,
     const double abD = Cross(a, b, d);
     const double cdA = Cross(c, d, a);
     const double cdB = Cross(c, d, b);
-    const bool separated = ((abC > kEpsilon && abD < -kEpsilon) ||
-                            (abC < -kEpsilon && abD > kEpsilon)) &&
-                           ((cdA > kEpsilon && cdB < -kEpsilon) ||
-                            (cdA < -kEpsilon && cdB > kEpsilon));
+    const bool separated = ((abC > 0.0L && abD < 0.0L) ||
+                            (abC < 0.0L && abD > 0.0L)) &&
+                           ((cdA > 0.0L && cdB < 0.0L) ||
+                            (cdA < 0.0L && cdB > 0.0L));
     return separated || OnSegment(a, b, c) || OnSegment(a, b, d) ||
            OnSegment(c, d, a) || OnSegment(c, d, b);
 }
@@ -142,7 +144,7 @@ Result<Ring> OrientedRing(const Ring& ring, bool counterClockwise,
     if (isCounterClockwise != counterClockwise) {
         std::reverse(output.begin(), output.end());
     }
-    if (std::abs(SignedArea(output)) <= kEpsilon) {
+    if (SignedArea(output) == 0.0L) {
         return Result<Ring>::Failure(
             {Failure("ring has zero area", ringIndex)});
     }
@@ -154,7 +156,79 @@ bool IsStrictlyInside(const Coordinate& point, const Coordinate& a,
     const double first = Cross(a, b, point);
     const double second = Cross(b, c, point);
     const double third = Cross(c, a, point);
-    return first > kEpsilon && second > kEpsilon && third > kEpsilon;
+    return first > 0.0 && second > 0.0 && third > 0.0;
+}
+
+Result<bool> ValidateSimpleRing(const Ring& ring, std::uint32_t ringIndex) {
+    for (std::size_t first = 0; first < ring.size(); ++first) {
+        const std::size_t firstNext = (first + 1) % ring.size();
+        for (std::size_t second = first + 1; second < ring.size(); ++second) {
+            const std::size_t secondNext = (second + 1) % ring.size();
+            if (firstNext == second || secondNext == first) {
+                continue;
+            }
+            if (SegmentsIntersect(ring[first], ring[firstNext],
+                                   ring[second], ring[secondNext])) {
+                return Result<bool>::Failure({Failure(
+                    "ring has intersecting non-adjacent edges", ringIndex)});
+            }
+        }
+    }
+    return Result<bool>::Success(true);
+}
+
+Result<bool> ValidatePolygonTopology(const Ring& outer,
+                                     const std::vector<Ring>& holes) {
+    auto outerValidation = ValidateSimpleRing(outer, 0);
+    if (!outerValidation.Succeeded()) {
+        return outerValidation;
+    }
+    for (std::size_t holeIndex = 0; holeIndex < holes.size(); ++holeIndex) {
+        const Ring& hole = holes[holeIndex];
+        auto holeValidation = ValidateSimpleRing(
+            hole, static_cast<std::uint32_t>(holeIndex + 1));
+        if (!holeValidation.Succeeded()) {
+            return holeValidation;
+        }
+        if (!PointInRing(hole.front(), outer)) {
+            return Result<bool>::Failure({Failure(
+                "polygon hole is outside the outer ring",
+                static_cast<std::uint32_t>(holeIndex + 1))});
+        }
+        for (std::size_t outerIndex = 0; outerIndex < outer.size(); ++outerIndex) {
+            const Coordinate& outerStart = outer[outerIndex];
+            const Coordinate& outerEnd = outer[(outerIndex + 1) % outer.size()];
+            for (std::size_t holeEdge = 0; holeEdge < hole.size(); ++holeEdge) {
+                if (SegmentsIntersect(outerStart, outerEnd, hole[holeEdge],
+                                       hole[(holeEdge + 1) % hole.size()])) {
+                    return Result<bool>::Failure({Failure(
+                        "polygon hole intersects the outer ring",
+                        static_cast<std::uint32_t>(holeIndex + 1))});
+                }
+            }
+        }
+        for (std::size_t previousHole = 0; previousHole < holeIndex;
+             ++previousHole) {
+            const Ring& other = holes[previousHole];
+            for (std::size_t first = 0; first < hole.size(); ++first) {
+                for (std::size_t second = 0; second < other.size(); ++second) {
+                    if (SegmentsIntersect(
+                            hole[first], hole[(first + 1) % hole.size()],
+                            other[second], other[(second + 1) % other.size()])) {
+                        return Result<bool>::Failure({Failure(
+                            "polygon holes intersect",
+                            static_cast<std::uint32_t>(holeIndex + 1))});
+                    }
+                }
+            }
+            if (PointInRing(hole.front(), other) ||
+                PointInRing(other.front(), hole)) {
+                return Result<bool>::Failure({Failure(
+                    "polygon holes overlap", static_cast<std::uint32_t>(holeIndex + 1))});
+            }
+        }
+    }
+    return Result<bool>::Success(true);
 }
 
 Result<std::vector<std::uint32_t>> MakeSimplePolygon(
@@ -180,6 +254,8 @@ Result<std::vector<std::uint32_t>> MakeSimplePolygon(
     }
 
     std::vector<std::uint32_t> polygon = outerIndices;
+    std::set<std::size_t> usedOuterIndices;
+    std::vector<std::pair<Coordinate, Coordinate>> bridges;
     for (std::size_t holeNumber = 0; holeNumber < holes.size(); ++holeNumber) {
         const Ring& hole = holes[holeNumber];
         const auto rightmost = std::min_element(
@@ -208,11 +284,25 @@ Result<std::vector<std::uint32_t>> MakeSimplePolygon(
                          });
         std::size_t outerIndex = outer.size();
         for (const std::size_t candidate : candidates) {
-            if (BridgeIsVisible(holePoint, outer[candidate], outer, holes)) {
+            if (usedOuterIndices.count(candidate) != 0) {
+                continue;
+            }
+            bool crossesExistingBridge = false;
+            for (const auto& bridge : bridges) {
+                if (SegmentsIntersect(holePoint, outer[candidate], bridge.first,
+                                       bridge.second)) {
+                    crossesExistingBridge = true;
+                    break;
+                }
+            }
+            if (!crossesExistingBridge &&
+                BridgeIsVisible(holePoint, outer[candidate], outer, holes)) {
                 outerIndex = candidate;
                 break;
             }
         }
+        usedOuterIndices.insert(outerIndex);
+        bridges.emplace_back(holePoint, outer[outerIndex]);
         if (outerIndex == outer.size()) {
             return Result<std::vector<std::uint32_t>>::Failure(
                 {Failure("no visible bridge found for polygon hole",
@@ -255,7 +345,7 @@ Result<std::vector<Triangle>> EarClip(const std::vector<std::uint32_t>& polygon,
             const Coordinate& a = vertices[previous];
             const Coordinate& b = vertices[current];
             const Coordinate& c = vertices[next];
-            if (Cross(a, b, c) <= kEpsilon) {
+            if (Cross(a, b, c) <= 0.0L) {
                 continue;
             }
 
@@ -290,8 +380,8 @@ Result<std::vector<Triangle>> EarClip(const std::vector<std::uint32_t>& polygon,
     }
 
     if (remaining.size() != 3 ||
-        Cross(vertices[remaining[0]], vertices[remaining[1]],
-              vertices[remaining[2]]) <= kEpsilon) {
+          Cross(vertices[remaining[0]], vertices[remaining[1]],
+              vertices[remaining[2]]) <= 0.0L) {
         return Result<std::vector<Triangle>>::Failure(
             {Failure("triangulation produced a degenerate final triangle")});
     }
@@ -302,6 +392,10 @@ Result<std::vector<Triangle>> EarClip(const std::vector<std::uint32_t>& polygon,
 }  // namespace
 
 Result<PolygonMesh> TriangulatePolygon(const Polygon& polygon) {
+    const auto validation = ValidateGeometry(Geometry{polygon});
+    if (!validation.empty()) {
+        return Result<PolygonMesh>::Failure(validation);
+    }
     auto outer = OrientedRing(polygon.outer, true, 0);
     if (!outer.Succeeded()) {
         return Result<PolygonMesh>::Failure(std::move(outer.diagnostics));
@@ -316,6 +410,11 @@ Result<PolygonMesh> TriangulatePolygon(const Polygon& polygon) {
             return Result<PolygonMesh>::Failure(std::move(hole.diagnostics));
         }
         holes.push_back(std::move(*hole.value));
+    }
+
+    auto topology = ValidatePolygonTopology(*outer.value, holes);
+    if (!topology.Succeeded()) {
+        return Result<PolygonMesh>::Failure(std::move(topology.diagnostics));
     }
 
     PolygonMesh mesh;

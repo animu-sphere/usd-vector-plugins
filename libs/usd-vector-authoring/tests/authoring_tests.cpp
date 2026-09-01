@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <variant>
 
 namespace {
@@ -125,6 +126,96 @@ void TestMvpGeometryPlans() {
            usdvector::GeometryType::Null);
 }
 
+void TestInvalidPolygonTopologyIsRejected() {
+    const usdvector::Polygon selfIntersecting{
+        {{0.0, 0.0}, {2.0, 2.0}, {0.0, 2.0}, {2.0, 0.0}}, {}};
+    auto selfIntersection =
+        usdvector::authoring::TriangulatePolygon(selfIntersecting);
+    assert(!selfIntersection.Succeeded());
+    assert(selfIntersection.diagnostics[0].code ==
+           usdvector::DiagnosticCode::PolygonTriangulationFailed);
+
+    const usdvector::Polygon outer{
+        {{0.0, 0.0}, {10.0, 0.0}, {10.0, 10.0}, {0.0, 10.0}}, {}};
+    const usdvector::Polygon outsideHole{
+        outer.outer, {{{11.0, 1.0}, {11.0, 2.0}, {12.0, 2.0}, {12.0, 1.0}}}};
+    auto outside = usdvector::authoring::TriangulatePolygon(outsideHole);
+    assert(!outside.Succeeded());
+
+    const usdvector::Polygon overlappingHoles{
+        outer.outer,
+        {{{2.0, 2.0}, {2.0, 6.0}, {6.0, 6.0}, {6.0, 2.0}},
+         {{4.0, 4.0}, {4.0, 8.0}, {8.0, 8.0}, {8.0, 4.0}}}};
+    auto overlap =
+        usdvector::authoring::TriangulatePolygon(overlappingHoles);
+    assert(!overlap.Succeeded());
+}
+
+void TestStrictDiagnosticsAndDeclaredBounds() {
+    usdvector::Feature first;
+    first.id = usdvector::FeatureId{"same"};
+    first.geometry = usdvector::Geometry{usdvector::Point{{0.0, 0.0}}};
+    usdvector::Feature second = first;
+    auto duplicate = usdvector::authoring::BuildAuthoringPlan(
+        usdvector::DatasetMetadata{"GeoJSON", std::nullopt, std::nullopt,
+                                   std::nullopt, 2},
+        {first, second}, usdvector::authoring::AuthoringOptions{true});
+    assert(!duplicate.Succeeded());
+    assert(duplicate.diagnostics[0].code ==
+           usdvector::DiagnosticCode::DuplicateFeatureId);
+    assert(duplicate.diagnostics[0].severity == usdvector::Severity::Error);
+
+    usdvector::Bounds declared;
+    declared.Include({0.0, 0.0});
+    declared.Include({10.0, 10.0});
+    auto datasetBounds = usdvector::authoring::BuildAuthoringPlan(
+        usdvector::DatasetMetadata{"GeoJSON", std::nullopt, declared,
+                                   std::nullopt, 1},
+        {first});
+    assert(datasetBounds.Succeeded());
+    assert(datasetBounds.diagnostics.size() == 1);
+    assert(datasetBounds.diagnostics[0].code ==
+           usdvector::DiagnosticCode::BoundsMismatch);
+    assert(datasetBounds.diagnostics[0].severity == usdvector::Severity::Warning);
+
+    first.declaredBounds = declared;
+    auto strictBounds = usdvector::authoring::BuildAuthoringPlan(
+        usdvector::DatasetMetadata{"GeoJSON", std::nullopt, std::nullopt,
+                                   std::nullopt, 1},
+        {first}, usdvector::authoring::AuthoringOptions{true});
+    assert(!strictBounds.Succeeded());
+    assert(strictBounds.diagnostics[0].code ==
+           usdvector::DiagnosticCode::BoundsMismatch);
+    assert(strictBounds.diagnostics[0].severity == usdvector::Severity::Error);
+}
+
+void TestDirectTriangulationRejectsNonFiniteCoordinates() {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const usdvector::Polygon polygon{
+        {{0.0, 0.0}, {1.0, 0.0}, {nan, 1.0}}, {}};
+    auto result = usdvector::authoring::TriangulatePolygon(polygon);
+    assert(!result.Succeeded());
+    assert(result.diagnostics[0].code == usdvector::DiagnosticCode::InvalidCoordinate);
+}
+
+void TestMultiPolygonDiagnosticsKeepPartAnchors() {
+    const usdvector::Polygon valid{
+        {{0.0, 0.0}, {1.0, 0.0}, {1.0, 1.0}, {0.0, 1.0}}, {}};
+    const usdvector::Polygon invalid{
+        {{0.0, 0.0}, {1.0, 1.0}, {2.0, 2.0}}, {}};
+    auto result = usdvector::authoring::BuildAuthoringPlan(
+        usdvector::DatasetMetadata{"GeoJSON", std::nullopt, std::nullopt,
+                                   std::nullopt, 1},
+        {{std::nullopt,
+          usdvector::Geometry{usdvector::MultiPolygon{{valid, invalid}}}, {},
+          std::nullopt}});
+    assert(!result.Succeeded());
+    assert(result.diagnostics[0].partIndex.has_value());
+    assert(*result.diagnostics[0].partIndex == 1);
+    assert(result.diagnostics[0].ringIndex.has_value());
+    assert(*result.diagnostics[0].ringIndex == 0);
+}
+
 }  // namespace
 
 int main() {
@@ -132,4 +223,8 @@ int main() {
     TestPolygonHoleTriangulation();
     TestNamesAndPropertiesAreDeterministic();
     TestMvpGeometryPlans();
+    TestInvalidPolygonTopologyIsRejected();
+    TestStrictDiagnosticsAndDeclaredBounds();
+    TestDirectTriangulationRejectsNonFiniteCoordinates();
+    TestMultiPolygonDiagnosticsKeepPartAnchors();
 }

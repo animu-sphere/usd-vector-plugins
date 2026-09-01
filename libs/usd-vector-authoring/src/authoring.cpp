@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <set>
 #include <type_traits>
 #include <utility>
 
@@ -22,16 +23,21 @@ Diagnostic FeatureDiagnostic(Diagnostic diagnostic, std::size_t featureIndex,
 }
 
 std::string UniqueName(const std::string& base,
-                       std::map<std::string, std::size_t>& usedNames,
+                       std::set<std::string>& usedNames,
                        std::vector<Diagnostic>& diagnostics,
-                       std::size_t featureIndex, const Feature& feature) {
-    const std::size_t occurrence = ++usedNames[base];
-    if (occurrence == 1) {
+                       std::size_t featureIndex, const Feature& feature,
+                       bool strict) {
+    if (usedNames.insert(base).second) {
         return base;
     }
+    std::size_t suffix = 2;
+    std::string uniqueName;
+    do {
+        uniqueName = base + "_" + std::to_string(suffix++);
+    } while (!usedNames.insert(uniqueName).second);
     Diagnostic diagnostic = FeatureDiagnostic(
         {DiagnosticCode::DuplicateFeatureId,
-         Severity::Warning,
+         strict ? Severity::Error : Severity::Warning,
          "feature name collided; a deterministic suffix was added",
          std::nullopt,
          std::nullopt,
@@ -42,7 +48,63 @@ std::string UniqueName(const std::string& base,
          std::nullopt},
         featureIndex, feature);
     diagnostics.push_back(std::move(diagnostic));
-    return base + "_" + std::to_string(occurrence);
+    return uniqueName;
+}
+
+Diagnostic BoundsDiagnostic(std::size_t featureIndex, const Feature& feature,
+                            bool strict) {
+    return FeatureDiagnostic(
+        {DiagnosticCode::BoundsMismatch,
+         strict ? Severity::Error : Severity::Warning,
+         "declared bounds disagree with computed bounds",
+         std::nullopt,
+         std::nullopt,
+         std::nullopt,
+         std::nullopt,
+         std::nullopt,
+         std::nullopt,
+         std::nullopt},
+        featureIndex, feature);
+}
+
+bool BoundsEqual(const Bounds& left, const Bounds& right) {
+    return left.empty == right.empty &&
+           (left.empty || (left.minX == right.minX &&
+                           left.minY == right.minY &&
+                           left.maxX == right.maxX &&
+                           left.maxY == right.maxY &&
+                           left.minZ == right.minZ &&
+                           left.maxZ == right.maxZ));
+}
+
+Diagnostic PrecisionDiagnostic(std::size_t featureIndex, const Feature& feature) {
+    return FeatureDiagnostic(
+        {DiagnosticCode::LocalCoordinatePrecision,
+         Severity::Error,
+         "local-coordinate conversion produced a non-finite component",
+         std::nullopt,
+         std::nullopt,
+         std::nullopt,
+         std::nullopt,
+         std::nullopt,
+         std::nullopt,
+         std::nullopt},
+        featureIndex, feature);
+}
+
+bool HasInvalidLocalCoordinates(const GeometryPlan& geometry) {
+    for (const LocalCoordinate& point : geometry.points) {
+        if (!std::isfinite(point.x) || !std::isfinite(point.y) ||
+            (point.z.has_value() && !std::isfinite(*point.z))) {
+            return true;
+        }
+    }
+    for (const GeometryPlan& child : geometry.children) {
+        if (HasInvalidLocalCoordinates(child)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void NormalizeProperties(const Properties& source, FeaturePlan& target,
@@ -144,9 +206,17 @@ Result<GeometryPlan> MakeGeometryPlan(const Geometry& geometry,
             } else if constexpr (std::is_same_v<Value, MultiPolygon>) {
                 GeometryPlan plan;
                 plan.sourceType = GeometryType::MultiPolygon;
-                for (const Polygon& polygon : value.polygons) {
+                for (std::size_t partIndex = 0; partIndex < value.polygons.size();
+                     ++partIndex) {
+                    const Polygon& polygon = value.polygons[partIndex];
                     auto child = MakeGeometryPlan(Geometry{polygon}, origin);
                     if (!child.Succeeded()) {
+                        for (Diagnostic& diagnostic : child.diagnostics) {
+                            if (!diagnostic.partIndex.has_value()) {
+                                diagnostic.partIndex =
+                                    static_cast<std::uint32_t>(partIndex);
+                            }
+                        }
                         return Result<GeometryPlan>::Failure(
                             std::move(child.diagnostics));
                     }
@@ -174,8 +244,22 @@ Result<AuthoringPlan> BuildAuthoringPlan(
     const Coordinate sourceOrigin = plan.sourceBounds.Center();
     plan.localOrigin = {sourceOrigin.x, sourceOrigin.y, sourceOrigin.z};
 
-    std::map<std::string, std::size_t> usedFeatureNames;
     std::vector<Diagnostic> diagnostics;
+    if (metadata.declaredBounds.has_value() &&
+        !BoundsEqual(*metadata.declaredBounds, plan.sourceBounds)) {
+        diagnostics.push_back({DiagnosticCode::BoundsMismatch,
+                               options.strict ? Severity::Error : Severity::Warning,
+                               "declared bounds disagree with computed bounds",
+                               std::nullopt,
+                               std::nullopt,
+                               std::nullopt,
+                               std::nullopt,
+                               std::nullopt,
+                               std::nullopt,
+                               std::nullopt});
+    }
+
+    std::set<std::string> usedFeatureNames;
     for (std::size_t featureIndex = 0; featureIndex < features.size(); ++featureIndex) {
         const Feature& feature = features[featureIndex];
         const auto validation = ValidateGeometry(
@@ -188,6 +272,13 @@ Result<AuthoringPlan> BuildAuthoringPlan(
             continue;
         }
 
+        if (feature.declaredBounds.has_value() &&
+            !BoundsEqual(*feature.declaredBounds,
+                         ComputeBounds(feature.geometry))) {
+            diagnostics.push_back(
+                BoundsDiagnostic(featureIndex, feature, options.strict));
+        }
+
         auto geometry = MakeGeometryPlan(feature.geometry, plan.localOrigin);
         if (!geometry.Succeeded()) {
             for (Diagnostic diagnostic : geometry.diagnostics) {
@@ -196,13 +287,17 @@ Result<AuthoringPlan> BuildAuthoringPlan(
             }
             continue;
         }
+        if (HasInvalidLocalCoordinates(*geometry.value)) {
+            diagnostics.push_back(PrecisionDiagnostic(featureIndex, feature));
+            continue;
+        }
 
         FeaturePlan featurePlan;
         featurePlan.sourceId = feature.id;
         featurePlan.name = UniqueName(
             feature.id.has_value() ? MakeFeatureName(*feature.id)
                                    : MakeFeatureName(featureIndex),
-            usedFeatureNames, diagnostics, featureIndex, feature);
+            usedFeatureNames, diagnostics, featureIndex, feature, options.strict);
         featurePlan.geometry = std::move(*geometry.value);
         NormalizeProperties(feature.properties, featurePlan, diagnostics,
                             featureIndex, feature);

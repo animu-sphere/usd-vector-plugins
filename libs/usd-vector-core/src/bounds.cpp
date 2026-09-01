@@ -78,8 +78,12 @@ Coordinate Bounds::Center() const {
     if (empty) {
         return {};
     }
-    return {(minX + maxX) / 2.0, (minY + maxY) / 2.0,
-            minZ.has_value() ? std::optional<double>{(*minZ + *maxZ) / 2.0}
+    const auto center = [](double minimum, double maximum) {
+        return minimum / 2.0 + maximum / 2.0;
+    };
+    return {center(minX, maxX), center(minY, maxY),
+            minZ.has_value()
+                ? std::optional<double>{center(*minZ, *maxZ)}
                               : std::nullopt};
 }
 
