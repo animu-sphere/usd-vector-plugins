@@ -7,5 +7,4 @@ platform = "cy2026"
 profile = "usd"
 
 [workspace]
-members = ["libs/*", "plugins/*"]
-release_members = []
+members = ["libs/*"]
