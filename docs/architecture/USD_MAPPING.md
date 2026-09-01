@@ -63,6 +63,11 @@ object keys. It is a preservation mechanism, not a query-friendly schema.
 
 ## 5. Metadata keys
 
+The project-defined keys below are stored in the prim's USD `customData`
+dictionary. This keeps the keys available without requiring a runtime schema
+registration; geometry and feature properties use typed USD attributes as
+specified above.
+
 | Key | Location | Meaning |
 | --- | --- | --- |
 | `vector:format` | `/Vector` | source format, initially `GeoJSON` |

@@ -8,15 +8,15 @@ through a separate authoring layer.
 ## Status
 
 The OpenUSD-independent `usdVectorCore` model and buffered `usdGeoJson` reader
-are implemented and tested. OpenUSD authoring and FileFormat registration are
-the next milestones.
+are implemented and tested. The authoring library can now emit an in-memory
+OpenUSD stage when enabled; FileFormat registration is the next milestone.
 
 | Milestone | Scope | Status |
 | --- | --- | --- |
 | M0 | Repository skeleton, CMake, CI, OpenStrata manifests | in progress |
 | M1 | `usdVectorCore` model, validation, bounds, diagnostics, identifiers | done |
 | M2 | `usdGeoJson` FeatureCollection reader and MVP geometries | done |
-| M3 | OpenUSD authoring, triangulation, local-origin metadata | in progress: tested authoring plan; USD emission planned |
+| M3 | OpenUSD authoring, triangulation, local-origin metadata | in progress: tested plan and optional stage emission |
 | M4 | FileFormat registration, `ArAsset`, arguments, integration tests | planned |
 
 ## Building

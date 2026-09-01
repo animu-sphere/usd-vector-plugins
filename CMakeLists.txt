@@ -18,5 +18,5 @@ add_subdirectory(libs/usd-geojson)
 add_subdirectory(libs/usd-vector-authoring)
 
 if(USDVECTOR_ENABLE_OPENUSD)
-    message(STATUS "OpenUSD targets are not available yet")
+    message(STATUS "Building OpenUSD-dependent authoring targets")
 endif()

@@ -3,9 +3,9 @@
 This documentation is organized by responsibility so current contracts,
 procedures, and future work do not drift into one another. The repository is
 at the first authoring-plan stage: `usdVectorCore`, the buffered GeoJSON
-reader, and the OpenUSD-independent `usdVectorAuthoring` plan layer are
-implemented; OpenUSD emission and plugin integration remain planned unless a
-document says otherwise.
+reader, and the `usdVectorAuthoring` plan layer are implemented. OpenUSD stage
+emission is available when a runtime is supplied; plugin integration remains
+planned unless a document says otherwise.
 
 | Category | Answers | Start here |
 | --- | --- | --- |
