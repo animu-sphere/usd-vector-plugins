@@ -1,8 +1,9 @@
 # Capability Matrix
 
 This matrix distinguishes contractual intent from working code. The repository
-contains tested core and GeoJSON reader capabilities; OpenUSD integration
-remains `planned` until its owning module is implemented.
+contains tested core, GeoJSON reader, and OpenUSD-independent authoring-plan
+capabilities; OpenUSD stage emission and plugin integration remain `planned`
+until their owning modules are implemented.
 
 Status vocabulary:
 

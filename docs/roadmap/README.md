@@ -8,7 +8,7 @@ count. Status is tracked against acceptance evidence, not directory presence.
 | M0 | Documentation contracts, root project skeleton, CI, licensing, notices | in progress |
 | M1 | `usdVectorCore`: model, bounds, validation, diagnostics, identifiers | implemented |
 | M2 | `usdGeoJson`: FeatureCollection, all MVP geometries, properties, fixtures | implemented |
-| M3 | `usdVectorAuthoring`: Points, Curves, Mesh triangulation, metadata, origin | planned |
+| M3 | `usdVectorAuthoring`: Points, Curves, Mesh triangulation, metadata, origin | in progress: tested plan layer; OpenUSD emission planned |
 | M4 | `vector-geojson`: registration, ArAsset adapter, arguments, integration tests | planned |
 | M5 | Scalability measurement and evidence-led streaming improvements | planned |
 | M6 | FlatGeobuf investigation and indexed partial-read contract | deferred |

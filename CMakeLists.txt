@@ -15,6 +15,7 @@ include(CTest)
 add_subdirectory(libs/usd-vector-core)
 add_subdirectory(third_party)
 add_subdirectory(libs/usd-geojson)
+add_subdirectory(libs/usd-vector-authoring)
 
 if(USDVECTOR_ENABLE_OPENUSD)
     message(STATUS "OpenUSD targets are not available yet")

@@ -1,6 +1,7 @@
 # Building
 
-Status: the core-only build described here is executable. OpenUSD and plugin
+Status: the core-only build described here is executable and includes the
+OpenUSD-independent authoring plan library. OpenUSD emission and plugin
 targets remain planned until their milestones land.
 
 ## Requirements
@@ -8,7 +9,7 @@ targets remain planned until their milestones land.
 - CMake 3.24 or newer
 - A C++17 compiler: Visual Studio 2022, recent Clang, or recent GCC
 - Ninja or another CMake-supported build tool
-- OpenUSD for `usdVectorAuthoring` and plugin targets
+- OpenUSD for the future USD emission and plugin targets
 - OpenStrata CLI only when building through the workspace manifests
 
 The intended JSON parser and triangulation dependencies will be pinned by the
@@ -25,7 +26,8 @@ cmake --build build/core
 ctest --test-dir build/core --output-on-failure
 ```
 
-This lane builds and tests `usdVectorCore` and `usdGeoJson`.
+This lane builds and tests `usdVectorCore`, `usdGeoJson`, and the
+OpenUSD-independent `usdVectorAuthoring` plan layer.
 
 ## Full build
 
