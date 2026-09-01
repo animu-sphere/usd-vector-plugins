@@ -4,9 +4,9 @@ This document fixes planned module identities, responsibilities, and legal
 dependency directions. A structural change that contradicts it must update
 this contract first.
 
-Status: `usdVectorCore` and `usdGeoJson` have tested library capabilities.
-`usdVectorAuthoring` provides the tested authoring plan layer and an optional
-OpenUSD stage emitter; plugin integration remains `planned`.
+Status: `usdVectorCore`, `usdGeoJson`, and `usdVectorAuthoring` have tested
+library capabilities. The generated `usd-fileformat-cpp` bundle connects the
+GeoJSON reader and authoring stage to OpenUSD FileFormat registration.
 Directories are created with their first tested capability rather than as
 empty placeholders.
 
@@ -16,8 +16,8 @@ empty placeholders.
 | --- | --- | --- | --- | --- |
 | `usdVectorCore` | `libs/usd-vector-core` | plain CMake library | implemented | Format- and USD-independent geometry, features, properties, bounds, metadata, validation, source interfaces, identifiers, and shared diagnostic values. |
 | `usdGeoJson` | `libs/usd-geojson` | plain CMake library | implemented | GeoJSON syntax, geometry/property decoding, GeoJSON validation, and conversion into `usdVectorCore`. |
-| `usdVectorAuthoring` | `libs/usd-vector-authoring` | authoring plan library and optional OpenUSD stage emitter | in progress | Stable feature plans, naming, source properties, triangulation, local-origin policy, dataset metadata, and USD schema mapping. |
-| `vector-geojson` | `plugins/vector-geojson` | OpenUSD FileFormat bundle | planned | Registration, argument parsing, `ArAsset` acquisition, reader/authoring composition, and plugin diagnostics. |
+| `usdVectorAuthoring` | `libs/usd-vector-authoring` | authoring plan library and OpenUSD stage emitter | implemented | Stable feature plans, naming, source properties, triangulation, local-origin policy, dataset metadata, and USD schema mapping. |
+| `vector-geojson` | `plugins/vector-geojson` | OpenUSD FileFormat bundle | implemented | Registration, argument parsing, `ArAsset` acquisition, reader/authoring composition, USDA stream serialization, and plugin diagnostics. |
 | `usd-vector-convert` | `tools/usd-vector-convert` | CLI | deferred | Explicit reprojection, partitioning, payload generation, and long-running conversion. |
 
 ## 2. Dependency directions

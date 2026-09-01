@@ -1,0 +1,23 @@
+{
+    "Plugins": [
+        {
+            "Type": "library",
+            "Name": "UsdVectorGeoJsonFileFormat",
+            "Root": ".",
+            "LibraryPath": "../../../lib/@OPENSTRATA_PLUGIN_LIBRARY_PREFIX@UsdVectorGeoJsonFileFormat@CMAKE_SHARED_LIBRARY_SUFFIX@",
+            "ResourcePath": ".",
+            "Info": {
+                "Types": {
+                    "UsdVectorGeoJsonFileFormat": {
+                        "bases": ["SdfFileFormat"],
+                        "displayName": "GeoJSON File Format",
+                        "extensions": ["geojson", "json"],
+                        "formatId": "GeoJSON",
+                        "primary": true,
+                        "target": "usd"
+                    }
+                }
+            }
+        }
+    ]
+}

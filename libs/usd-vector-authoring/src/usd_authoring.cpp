@@ -248,29 +248,23 @@ bool AuthorFeatureMetadata(const UsdPrim& prim, const FeaturePlan& feature) {
         const VtValue sourceId = std::visit(
             [](const auto& value) { return VtValue(value); },
             *feature.sourceId);
-        if (!prim.SetCustomDataByKey(TfToken("vector:featureId"), sourceId)) {
-            return false;
-        }
+        prim.SetCustomDataByKey(TfToken("vector:featureId"), sourceId);
     }
     if (!feature.nullProperties.empty()) {
         VtArray<TfToken> nullProperties;
         for (const std::string& name : feature.nullProperties) {
             nullProperties.push_back(TfToken(name));
         }
-        if (!prim.SetCustomDataByKey(TfToken("vector:nullProperties"),
-                         VtValue(nullProperties))) {
-            return false;
-        }
+        prim.SetCustomDataByKey(TfToken("vector:nullProperties"),
+                                VtValue(nullProperties));
     }
     if (!feature.propertyNames.empty()) {
         VtDictionary propertyNames;
         for (const auto& [normalized, original] : feature.propertyNames) {
             propertyNames[TfToken(normalized)] = VtValue(original);
         }
-        if (!prim.SetCustomDataByKey(TfToken("vector:propertyNames"),
-                         VtValue(propertyNames))) {
-            return false;
-        }
+        prim.SetCustomDataByKey(TfToken("vector:propertyNames"),
+                                VtValue(propertyNames));
     }
     const UsdProperties properties = ToUsdProperties(feature.properties);
     for (const auto& [name, value] : properties) {
@@ -282,10 +276,8 @@ bool AuthorFeatureMetadata(const UsdPrim& prim, const FeaturePlan& feature) {
 }
 
 bool AuthorDatasetMetadata(const UsdPrim& prim, const AuthoringPlan& plan) {
-    if (!prim.SetCustomDataByKey(TfToken("vector:format"),
-                                 VtValue(plan.metadata.format))) {
-        return false;
-    }
+    prim.SetCustomDataByKey(TfToken("vector:format"),
+                            VtValue(plan.metadata.format));
     if (!plan.sourceBounds.empty) {
         VtArray<double> bounds;
         bounds.push_back(plan.sourceBounds.minX);
@@ -296,25 +288,19 @@ bool AuthorDatasetMetadata(const UsdPrim& prim, const AuthoringPlan& plan) {
             bounds.push_back(*plan.sourceBounds.minZ);
             bounds.push_back(*plan.sourceBounds.maxZ);
         }
-        if (!prim.SetCustomDataByKey(TfToken("vector:sourceBounds"),
-                         VtValue(bounds))) {
-            return false;
-        }
+        prim.SetCustomDataByKey(TfToken("vector:sourceBounds"),
+                                VtValue(bounds));
     }
     const VtValue origin = VtValue(GfVec3d(
         plan.localOrigin.x, plan.localOrigin.y, plan.localOrigin.z.value_or(0.0)));
-    if (!prim.SetCustomDataByKey(TfToken("vector:localOrigin"), origin)) {
-        return false;
+    prim.SetCustomDataByKey(TfToken("vector:localOrigin"), origin);
+    if (plan.metadata.crs.has_value()) {
+        prim.SetCustomDataByKey(TfToken("vector:crs"),
+                                VtValue(*plan.metadata.crs));
     }
-    if (plan.metadata.crs.has_value() &&
-        !prim.SetCustomDataByKey(TfToken("vector:crs"),
-                     VtValue(*plan.metadata.crs))) {
-        return false;
-    }
-    if (plan.metadata.featureCount.has_value() &&
-        !prim.SetCustomDataByKey(TfToken("vector:featureCount"),
-                     VtValue(*plan.metadata.featureCount))) {
-        return false;
+    if (plan.metadata.featureCount.has_value()) {
+        prim.SetCustomDataByKey(TfToken("vector:featureCount"),
+                                VtValue(*plan.metadata.featureCount));
     }
     return true;
 }

@@ -1,16 +1,15 @@
 # Building
 
-Status: the core-only build described here is executable and includes the
-OpenUSD-independent authoring plan library. OpenUSD stage emission is available
-when an OpenUSD installation is supplied; plugin targets remain planned.
+Status: the core-only and OpenUSD plugin builds are executable. The GeoJSON
+bundle follows the generated `usd-fileformat-cpp` OpenStrata template.
 
 ## Requirements
 
 - CMake 3.24 or newer
 - A C++17 compiler: Visual Studio 2022, recent Clang, or recent GCC
 - Ninja or another CMake-supported build tool
-- OpenUSD for the future USD emission and plugin targets
-- OpenStrata CLI only when building through the workspace manifests
+- OpenUSD 26.08 for stage emission and plugin targets
+- OpenStrata CLI 0.22.8 when building or testing through the workspace manifests
 
 The intended JSON parser and triangulation dependencies will be pinned by the
 root build and documented in `THIRD_PARTY_NOTICES.md`; do not install arbitrary
@@ -40,21 +39,22 @@ cmake --build build/full
 ctest --test-dir build/full --output-on-failure
 ```
 
-This enables the `usdVectorAuthoring` stage-emission path. The exact OpenUSD
-compatibility range will be documented once CI pins the first runtime. A
-successful compile against an unlisted version does not make that version
-supported.
+This enables the `usdVectorAuthoring` stage-emission path and the
+`vector-geojson` FileFormat plugin. The supported plugin runtime range is
+OpenUSD `>=26.08,<27.0`; a successful compile against an unlisted version does
+not make that version supported.
 
 ## OpenStrata build
 
-When workspace manifests are added, the supported flow is expected to be:
+The supported workspace flow is:
 
 ```powershell
 ost configure
 ost build
 ost test
 ost plugin build plugins/vector-geojson
-ost plugin test plugins/vector-geojson --up-to 4
+ost plugin doctor plugins/vector-geojson
+ost plugin test plugins/vector-geojson --up-to 5
 ```
 
 Build instructions must be updated in the same change that introduces or

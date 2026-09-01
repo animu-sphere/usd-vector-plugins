@@ -1,0 +1,10 @@
+# OpenStrata plugin bundle manifest.
+# A plugin is a self-describing bundle, not a bare shared library: this file is
+# the contract `ost plugin inspect|build|doctor|test` resolve against.
+plugin: { name: vector-geojson, version: 0.1.0, kind: usd-fileformat }
+license: Apache-2.0
+runtime: { openusd: ">=26.08,<27.0" }
+provides: [usd-fileformat:geojson]
+requires: { capabilities: [usd-stage-read] }
+usd: { plug_info: plugin/resources/vector-geojson/plugInfo.json }
+tests: { smoke: [tests/fixtures/basic.geojson, tests/fixtures/basic.json], roundtrip: [tests/fixtures/basic.geojson, tests/fixtures/basic.json], negative: [tests/fixtures/invalid.geojson, tests/fixtures/unrelated.json] }

@@ -2,8 +2,8 @@
 
 This matrix distinguishes contractual intent from working code. The repository
 contains tested core, GeoJSON reader, and OpenUSD-independent authoring-plan
-capabilities. OpenUSD stage emission is implemented in the optional authoring
-path; plugin integration remains `planned` until its owning module is built.
+capabilities. OpenUSD stage emission and the GeoJSON FileFormat integration are
+implemented and exercised against the pinned OpenStrata runtime.
 
 Status vocabulary:
 
@@ -19,14 +19,14 @@ not planned                   explicitly outside project scope
 
 | Capability | Extension/source | Status | Phase |
 | --- | --- | --- | --- |
-| GeoJSON FeatureCollection | `.geojson` | implemented, not connected | 1 |
-| GeoJSON FeatureCollection in generic JSON | `.json` | implemented, not connected | 1, accepted only after bounded content probing |
+| GeoJSON FeatureCollection | `.geojson` | implemented | 1 |
+| GeoJSON FeatureCollection in generic JSON | `.json` | implemented | 1, accepted only after bounded content probing |
 | FlatGeobuf | `.fgb` | deferred | 2 |
 | Shapefile | `.shp` plus sidecars | deferred | 3 |
 | GeoPackage | `.gpkg` | deferred | 4 |
-| Local file | filesystem | planned | 1 |
-| In-memory source | test/embedding | implemented, not connected | 1 |
-| Resolver-provided `ArAsset` | any resolver identity | planned | 1 |
+| Local file | filesystem | implemented | 1 |
+| In-memory source | test/embedding | implemented | 1 |
+| Resolver-provided `ArAsset` | any resolver identity | implemented | 1 |
 | HTTP implemented here | URL | not planned | resolver responsibility |
 | Vector writing | any | not planned | separate milestone after read stability |
 
@@ -34,15 +34,15 @@ not planned                   explicitly outside project scope
 
 | Capability | Status | Notes |
 | --- | --- | --- |
-| FeatureCollection | implemented, not connected | MVP root object |
-| Feature | implemented, not connected | Read through collection |
+| FeatureCollection | implemented | MVP root object |
+| Feature | implemented | Read through collection |
 | Bare Geometry root | deferred | Not needed for first plugin milestone |
-| Point / MultiPoint | implemented, not connected | `UsdGeomPoints` |
-| LineString / MultiLineString | implemented, not connected | linear `UsdGeomBasisCurves` |
-| Polygon | implemented, not connected | triangulated `UsdGeomMesh` |
-| Polygon holes | implemented, not connected | included in triangulation |
-| MultiPolygon | implemented, not connected | Xform with Mesh children |
-| Null geometry | implemented, not connected | metadata-only feature Xform |
+| Point / MultiPoint | implemented | `UsdGeomPoints` |
+| LineString / MultiLineString | implemented | linear `UsdGeomBasisCurves` |
+| Polygon | implemented | triangulated `UsdGeomMesh` |
+| Polygon holes | implemented | included in triangulation |
+| MultiPolygon | implemented | Xform with Mesh children |
+| Null geometry | implemented | metadata-only feature Xform |
 | GeometryCollection | deferred | Stable hierarchy still to be designed |
 | Self-intersection repair | not planned | invalid input is diagnosed |
 
@@ -50,32 +50,32 @@ not planned                   explicitly outside project scope
 
 | Capability | Status | Notes |
 | --- | --- | --- |
-| String and integer feature IDs | implemented, not connected | original type preserved |
-| Missing IDs | implemented, not connected | stable sequential names |
+| String and integer feature IDs | implemented | original type preserved |
+| Missing IDs | implemented | stable sequential names |
 | Duplicate IDs | planned | warning plus deterministic suffix; error in strict mode |
-| bool, integer, number, string properties | implemented, not connected | typed USD attributes |
-| null properties | implemented, not connected | explicit null-name metadata |
-| homogeneous scalar arrays | implemented, not connected | typed USD arrays |
-| nested or heterogeneous values | implemented, not connected | canonical JSON fallback |
-| Dataset and feature `bbox` | implemented, not connected | kept distinct from computed bounds |
+| bool, integer, number, string properties | implemented | typed USD attributes |
+| null properties | implemented | explicit null-name metadata |
+| homogeneous scalar arrays | implemented | typed USD arrays |
+| nested or heterogeneous values | implemented | canonical JSON fallback |
+| Dataset and feature `bbox` | implemented | kept distinct from computed bounds |
 | Foreign members | planned | preserved subject to documented limits |
-| Legacy GeoJSON `crs` | implemented, not connected | preserved and warned; no reprojection |
+| Legacy GeoJSON `crs` | implemented | preserved and warned; no reprojection |
 
 ## Coordinates and authoring
 
 | Capability | Status | Notes |
 | --- | --- | --- |
-| Double-precision internal coordinates | implemented, not connected | all geometry processing |
-| Deterministic local origin | implemented, not connected | bounds-center origin in the authoring plan and stage emitter |
-| Source-coordinate recovery metadata | implemented, not connected | `vector:localOrigin` and source bounds |
+| Double-precision internal coordinates | implemented | all geometry processing |
+| Deterministic local origin | implemented | bounds-center origin in the authoring plan and stage emitter |
+| Source-coordinate recovery metadata | implemented | `vector:localOrigin` and source bounds |
 | Reprojection | not planned | explicit converter/host responsibility |
-| One logical prim per feature | implemented, not connected | identity before geometry authoring |
-| Deterministic prim paths | implemented, not connected | source ID, then sequence |
+| One logical prim per feature | implemented | identity before geometry authoring |
+| Deterministic prim paths | implemented | source ID, then sequence |
 | Renderer-specific styling | not planned | host responsibility |
 
 ## File-format arguments
 
-`strict`, `properties`, and `geometry` are planned. The normative value and
+`strict`, `properties`, and `geometry` are implemented. The normative value and
 default table is [FILE_FORMAT_ARGUMENTS.md](../architecture/FILE_FORMAT_ARGUMENTS.md).
 
 ## Known MVP limitations
