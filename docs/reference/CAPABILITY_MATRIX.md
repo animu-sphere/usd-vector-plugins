@@ -1,9 +1,9 @@
 # Capability Matrix
 
 This matrix distinguishes contractual intent from working code. The repository
-contains tested core, GeoJSON reader, and OpenUSD-independent authoring-plan
-capabilities. OpenUSD stage emission and the GeoJSON FileFormat integration are
-implemented and exercised against the pinned OpenStrata runtime.
+contains tested core, GeoJSON reader, authoring-plan, OpenUSD stage-emission,
+and GeoJSON FileFormat capabilities. The complete vertical slice is exercised
+against the pinned OpenStrata runtime.
 
 Status vocabulary:
 
@@ -88,3 +88,14 @@ default table is [FILE_FORMAT_ARGUMENTS.md](../architecture/FILE_FORMAT_ARGUMENT
 - Invalid self-intersecting polygons are rejected rather than repaired.
 - Direct plugin reads are not the future production path for tiling or large,
   resumable conversion.
+
+## Release acceptance
+
+The GeoJSON reference implementation remains releasable only while the core,
+authoring, and plugin lanes cover all six supported geometry types, polygon
+holes, typed scalar properties, stable identifiers and prim paths,
+local-origin precision, CRS and foreign-member preservation, `.json` probing,
+`ArAsset` reads, malformed-input diagnostics, and flatten/reopen behavior.
+
+Scalability, artifact-composition, and format-expansion gates are maintained in
+[IMPLEMENTATION_PLAN.md](../roadmap/IMPLEMENTATION_PLAN.md).

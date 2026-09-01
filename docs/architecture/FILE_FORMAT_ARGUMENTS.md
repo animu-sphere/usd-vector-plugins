@@ -4,7 +4,7 @@ The MVP argument surface stays deliberately small. Arguments are parsed and
 normalized by `vector-geojson`; shared validation is called before reading or
 authoring. Normalized arguments participate in layer identity.
 
-## 1. Planned MVP arguments
+## 1. Implemented arguments
 
 | Argument | Values | Default | Meaning |
 | --- | --- | --- | --- |

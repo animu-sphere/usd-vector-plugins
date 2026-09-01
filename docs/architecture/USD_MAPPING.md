@@ -1,7 +1,8 @@
 # OpenUSD mapping
 
-This document fixes the planned MVP mapping from `usdVectorCore` values to
-OpenUSD. It is a compatibility contract once the first plugin release ships.
+This document fixes the implemented mapping from `usdVectorCore` values to
+OpenUSD. It is a compatibility contract for the GeoJSON reference
+implementation and future format readers.
 
 ## 1. Root hierarchy
 

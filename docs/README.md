@@ -2,18 +2,18 @@
 
 This documentation is organized by responsibility so current contracts,
 procedures, and future work do not drift into one another. The repository is
-at the first authoring-plan stage: `usdVectorCore`, the buffered GeoJSON
-reader, and the `usdVectorAuthoring` plan layer are implemented. OpenUSD stage
-emission is available when a runtime is supplied; plugin integration remains
-planned unless a document says otherwise.
+at Milestone 4: `usdVectorCore`, the buffered `usdGeoJson` reader,
+`usdVectorAuthoring`, and the `vector-geojson` FileFormat plugin are
+implemented. The plugin vertical slice has been verified through OpenStrata
+L0-L5; scalability measurement is next.
 
 | Category | Answers | Start here |
 | --- | --- | --- |
 | [design/](design/) | Why the project is built this way and what it will not own. | [DESIGN_POLICY.md](design/DESIGN_POLICY.md) |
 | [architecture/](architecture/) | How the workspace is structured and how vector data maps to OpenUSD. | [WORKSPACE.md](architecture/WORKSPACE.md), [VECTOR_MODEL.md](architecture/VECTOR_MODEL.md) |
 | [reference/](reference/) | What input is accepted and which diagnostics are stable. | [CAPABILITY_MATRIX.md](reference/CAPABILITY_MATRIX.md), [DIAGNOSTICS.md](reference/DIAGNOSTICS.md) |
-| [guides/](guides/) | How to build and install the project once the skeleton lands. | [BUILDING.md](guides/BUILDING.md), [INSTALL.md](guides/INSTALL.md) |
-| [roadmap/](roadmap/) | What will be implemented and in which order. | [README.md](roadmap/README.md) |
+| [guides/](guides/) | How to build and install the project. | [BUILDING.md](guides/BUILDING.md), [INSTALL.md](guides/INSTALL.md) |
+| [roadmap/](roadmap/) | What will be implemented and in which order. | [README.md](roadmap/README.md), [IMPLEMENTATION_PLAN.md](roadmap/IMPLEMENTATION_PLAN.md) |
 
 ## The one-sentence version
 
@@ -43,7 +43,9 @@ GeoJSON -> usdGeoJson -> VectorDataset -> usdVectorAuthoring -> OpenUSD
    hierarchy, naming, and property mapping.
 5. [architecture/COORDINATES_AND_CRS.md](architecture/COORDINATES_AND_CRS.md) -
    precision and CRS preservation policy.
-6. [roadmap/README.md](roadmap/README.md) - implementation sequence and gates.
+6. [roadmap/README.md](roadmap/README.md) - milestone status and MVP gates.
+7. [roadmap/IMPLEMENTATION_PLAN.md](roadmap/IMPLEMENTATION_PLAN.md) - ordered
+   work after the GeoJSON vertical slice.
 
 ## Repository boundaries
 

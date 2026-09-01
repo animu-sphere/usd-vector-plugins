@@ -1,6 +1,6 @@
 # Development Policy
 
-Last updated: 2026-09-01
+Last updated: 2026-09-02
 
 This is the standing development policy for `usd-vector-plugins`. Architecture
 documents refine it; roadmap documents schedule it. Neither overrides it.
@@ -9,12 +9,16 @@ documents refine it; roadmap documents schedule it. Neither overrides it.
 
 The project provides reusable C++ libraries and OpenUSD FileFormat Plugins for
 GIS vector datasets. GeoJSON is the first end-to-end target. The repository is
-currently at Milestone 0: documentation contracts exist, but no reader,
-authoring library, or plugin is implemented.
+at Milestone 4: `usdVectorCore`, `usdGeoJson`, `usdVectorAuthoring`, and the
+`vector-geojson` FileFormat plugin are implemented and verified through
+OpenStrata L0-L5. Scalability measurement is the next milestone; indexed
+formats remain deferred until the reader boundary is proven at scale.
 
-The first milestone is complete when a GeoJSON `FeatureCollection` opens as an
-OpenUSD layer with deterministic feature prims, typed properties,
-precision-safe coordinates, and correct Point, Curve, and Mesh authoring.
+The GeoJSON vertical slice is the reference implementation. It opens a
+GeoJSON `FeatureCollection` as an OpenUSD layer with deterministic feature
+prims, typed properties, precision-safe coordinates, and correct Point,
+Curve, and Mesh authoring. Future format and performance work must preserve
+those contracts.
 
 ## 2. Design principles
 

@@ -33,4 +33,6 @@ module, connected where the capability matrix claims it is connected, and
 covered by the appropriate test tier.
 
 Format expansion after the MVP is described in
-[FORMAT_EXPANSION.md](FORMAT_EXPANSION.md).
+[FORMAT_EXPANSION.md](FORMAT_EXPANSION.md). The ordered work from contract sync
+through runtime composition, scalability, conversion, and FlatGeobuf is in
+[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).

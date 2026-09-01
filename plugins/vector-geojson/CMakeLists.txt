@@ -66,3 +66,11 @@ openstrata_install_plugin_bundle(
         "${CMAKE_CURRENT_SOURCE_DIR}/openstrata.plugin.yaml"
         "${CMAKE_CURRENT_SOURCE_DIR}/openstrata.scaffold.yaml"
     FIXTURE_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
+
+if(PROJECT_IS_TOP_LEVEL)
+    install(FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../LICENSE"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../NOTICE"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../THIRD_PARTY_NOTICES.md"
+        DESTINATION "share/usd-vector-plugins")
+endif()
