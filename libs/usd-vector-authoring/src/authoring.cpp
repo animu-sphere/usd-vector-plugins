@@ -3,6 +3,8 @@
 #include "usdvector/core/identifiers.h"
 #include "usdvector/core/validation.h"
 
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -12,6 +14,57 @@
 
 namespace usdvector::authoring {
 namespace {
+
+using Json = nlohmann::json;
+
+Json ToJson(const PropertyValue& source) {
+    return std::visit(
+        [](const auto& value) -> Json {
+            using Value = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<Value, std::monostate>) {
+                return nullptr;
+            } else if constexpr (std::is_same_v<Value, PropertyValue::Array>) {
+                Json result = Json::array();
+                for (const PropertyValue& item : value) {
+                    result.push_back(ToJson(item));
+                }
+                return result;
+            } else if constexpr (std::is_same_v<Value, PropertyValue::Object>) {
+                Json result = Json::object();
+                for (const auto& [name, item] : value) {
+                    result[name] = ToJson(item);
+                }
+                return result;
+            } else {
+                return Json(value);
+            }
+        },
+        source.value);
+}
+
+template <typename Value, typename Array>
+bool IsHomogeneousScalarArray(const Array& source) {
+    for (const PropertyValue& item : source) {
+        if (!std::holds_alternative<Value>(item.value)) {
+            return false;
+        }
+    }
+    return !source.empty();
+}
+
+template <typename Value>
+std::vector<Value> CopyScalarArray(const PropertyValue::Array& source) {
+    std::vector<Value> result;
+    result.reserve(source.size());
+    for (const PropertyValue& item : source) {
+        result.push_back(std::get<Value>(item.value));
+    }
+    return result;
+}
+
+CanonicalJson ToCanonicalJson(const PropertyValue& source) {
+    return {ToJson(source).dump()};
+}
 
 Diagnostic FeatureDiagnostic(Diagnostic diagnostic, std::size_t featureIndex,
                              const Feature& feature) {
@@ -233,6 +286,51 @@ Result<GeometryPlan> MakeGeometryPlan(const Geometry& geometry,
 LocalCoordinate ToLocalCoordinate(const Coordinate& source,
                                   const LocalCoordinate& origin) {
     return Local(source, origin);
+}
+
+std::optional<UsdPropertyValue> ToUsdPropertyValue(
+    const PropertyValue& source) {
+    return std::visit(
+        [&](const auto& value) -> std::optional<UsdPropertyValue> {
+            using Value = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<Value, std::monostate>) {
+                return std::nullopt;
+            } else if constexpr (std::is_same_v<Value, PropertyValue::Array>) {
+                if (IsHomogeneousScalarArray<bool>(value)) {
+                    return CopyScalarArray<bool>(value);
+                }
+                if (IsHomogeneousScalarArray<std::int64_t>(value)) {
+                    return CopyScalarArray<std::int64_t>(value);
+                }
+                if (IsHomogeneousScalarArray<std::uint64_t>(value)) {
+                    return CopyScalarArray<std::uint64_t>(value);
+                }
+                if (IsHomogeneousScalarArray<double>(value)) {
+                    return CopyScalarArray<double>(value);
+                }
+                if (IsHomogeneousScalarArray<std::string>(value)) {
+                    return CopyScalarArray<std::string>(value);
+                }
+                return ToCanonicalJson(source);
+            } else if constexpr (std::is_same_v<Value, PropertyValue::Object>) {
+                return ToCanonicalJson(source);
+            } else {
+                return value;
+            }
+        },
+        source.value);
+}
+
+UsdProperties ToUsdProperties(const Properties& source) {
+    UsdProperties result;
+    for (const auto& [name, value] : source) {
+        const std::optional<UsdPropertyValue> converted =
+            ToUsdPropertyValue(value);
+        if (converted.has_value()) {
+            result.emplace(name, *converted);
+        }
+    }
+    return result;
 }
 
 Result<AuthoringPlan> BuildAuthoringPlan(
