@@ -16,7 +16,7 @@ the next milestones.
 | M0 | Repository skeleton, CMake, CI, OpenStrata manifests | in progress |
 | M1 | `usdVectorCore` model, validation, bounds, diagnostics, identifiers | done |
 | M2 | `usdGeoJson` FeatureCollection reader and MVP geometries | done |
-| M3 | OpenUSD authoring, triangulation, local-origin metadata | planned |
+| M3 | OpenUSD authoring, triangulation, local-origin metadata | in progress: tested authoring plan; USD emission planned |
 | M4 | FileFormat registration, `ArAsset`, arguments, integration tests | planned |
 
 ## Building
