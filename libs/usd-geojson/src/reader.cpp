@@ -429,7 +429,6 @@ Result<ParsedDocument> ParseDocument(std::string_view source,
                 "Feature is missing geometry", featureIndex));
         } else if (!ParseGeometry(sourceFeature["geometry"], feature.geometry,
                       options, document.diagnostics)) {
-            document.diagnostics.back().featureIndex = featureIndex;
         }
         if (sourceFeature.contains("properties")) {
             ParseProperties(sourceFeature["properties"], feature.properties,

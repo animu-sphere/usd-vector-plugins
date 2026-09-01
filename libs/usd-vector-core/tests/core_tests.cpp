@@ -35,6 +35,17 @@ void TestEmptyBoundsUseZeroOrigin() {
     assert(origin.x == 0.0 && origin.y == 0.0 && !origin.z.has_value());
 }
 
+void TestEmptyMultiGeometriesAreRejected() {
+    const std::vector<usdvector::Geometry> geometries = {
+        usdvector::MultiPoint{}, usdvector::MultiLineString{},
+        usdvector::MultiPolygon{}};
+    for (const usdvector::Geometry& geometry : geometries) {
+        const auto diagnostics = usdvector::ValidateGeometry(geometry);
+        assert(diagnostics.size() == 1);
+        assert(diagnostics[0].code == usdvector::DiagnosticCode::InsufficientCoordinates);
+    }
+}
+
 void TestRingNormalization() {
     usdvector::Ring ring{{0.0, 0.0}, {1.0, 0.0}, {0.0, 1.0}, {0.0, 0.0}};
     usdvector::Result<usdvector::Ring> result = usdvector::NormalizeRing(ring);
@@ -103,6 +114,7 @@ int main() {
     TestDeterministicFeatureNames();
     TestBoundsPreserveLargeCoordinates();
     TestEmptyBoundsUseZeroOrigin();
+    TestEmptyMultiGeometriesAreRejected();
     TestRingNormalization();
     TestValidationAnchorsAndStrictDimensions();
     TestStrictDimensionsSpanMultiParts();

@@ -119,21 +119,39 @@ std::vector<Diagnostic> ValidateGeometry(const Geometry& geometry,
                 ValidateCoordinates({value.coordinate}, options, diagnostics,
                                      dimensions);
             } else if constexpr (std::is_same_v<Value, MultiPoint>) {
-                ValidateCoordinates(value.coordinates, options, diagnostics,
-                                     dimensions);
+                if (value.coordinates.empty()) {
+                    diagnostics.push_back(MakeDiagnostic(
+                        DiagnosticCode::InsufficientCoordinates,
+                        "multi geometry has no parts"));
+                } else {
+                    ValidateCoordinates(value.coordinates, options, diagnostics,
+                                        dimensions);
+                }
             } else if constexpr (std::is_same_v<Value, LineString>) {
                 ValidateLine(value, options, diagnostics, dimensions);
             } else if constexpr (std::is_same_v<Value, MultiLineString>) {
-                for (std::size_t index = 0; index < value.lines.size(); ++index) {
-                    ValidateLine(value.lines[index], options, diagnostics, dimensions,
-                                 static_cast<std::uint32_t>(index));
+                if (value.lines.empty()) {
+                    diagnostics.push_back(MakeDiagnostic(
+                        DiagnosticCode::InsufficientCoordinates,
+                        "multi geometry has no parts"));
+                } else {
+                    for (std::size_t index = 0; index < value.lines.size(); ++index) {
+                        ValidateLine(value.lines[index], options, diagnostics, dimensions,
+                                     static_cast<std::uint32_t>(index));
+                    }
                 }
             } else if constexpr (std::is_same_v<Value, Polygon>) {
                 ValidatePolygon(value, options, diagnostics, dimensions);
             } else if constexpr (std::is_same_v<Value, MultiPolygon>) {
-                for (std::size_t index = 0; index < value.polygons.size(); ++index) {
-                    ValidatePolygon(value.polygons[index], options, diagnostics, dimensions,
-                                    static_cast<std::uint32_t>(index));
+                if (value.polygons.empty()) {
+                    diagnostics.push_back(MakeDiagnostic(
+                        DiagnosticCode::InsufficientCoordinates,
+                        "multi geometry has no parts"));
+                } else {
+                    for (std::size_t index = 0; index < value.polygons.size(); ++index) {
+                        ValidatePolygon(value.polygons[index], options, diagnostics, dimensions,
+                                        static_cast<std::uint32_t>(index));
+                    }
                 }
             }
         },
