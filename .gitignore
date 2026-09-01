@@ -1,0 +1,12 @@
+/build/
+/build-*/
+.vs/
+/.strata/
+**/.strata/
+CMakeUserPresets.json
+
+# OpenStrata CI scratch and generated release staging.
+/.ost-ci/
+/.ost-ci-home/
+/dist/
+/release-stage/
