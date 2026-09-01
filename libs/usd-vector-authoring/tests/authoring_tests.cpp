@@ -98,6 +98,28 @@ void TestUsdPropertyMappingUsesTypedValuesAndCanonicalFallback() {
             usdvector::PropertyValue{std::int64_t{1}},
             usdvector::PropertyValue{std::int64_t{2}}}});
     properties.emplace(
+        "flags",
+        usdvector::PropertyValue{usdvector::PropertyValue::Array{
+            usdvector::PropertyValue{true},
+            usdvector::PropertyValue{false}}});
+    properties.emplace(
+        "unsigneds",
+        usdvector::PropertyValue{usdvector::PropertyValue::Array{
+            usdvector::PropertyValue{std::uint64_t{3}},
+            usdvector::PropertyValue{std::uint64_t{4}}}});
+    properties.emplace(
+        "doubles",
+        usdvector::PropertyValue{usdvector::PropertyValue::Array{
+            usdvector::PropertyValue{1.5}, usdvector::PropertyValue{2.5}}});
+    properties.emplace(
+        "names",
+        usdvector::PropertyValue{usdvector::PropertyValue::Array{
+            usdvector::PropertyValue{std::string{"first"}},
+            usdvector::PropertyValue{std::string{"second"}}}});
+    properties.emplace(
+        "empty",
+        usdvector::PropertyValue{usdvector::PropertyValue::Array{}});
+    properties.emplace(
         "mixed",
         usdvector::PropertyValue{usdvector::PropertyValue::Array{
             usdvector::PropertyValue{std::int64_t{1}},
@@ -110,7 +132,7 @@ void TestUsdPropertyMappingUsesTypedValuesAndCanonicalFallback() {
     properties.emplace("missing", usdvector::PropertyValue{});
 
     const auto mapped = usdvector::authoring::ToUsdProperties(properties);
-    assert(mapped.size() == 8);
+    assert(mapped.size() == 13);
     assert(std::get<bool>(mapped.at("flag")));
     assert(std::get<std::int64_t>(mapped.at("signed")) == -3);
     assert(std::get<std::uint64_t>(mapped.at("unsigned")) == 4);
@@ -118,6 +140,16 @@ void TestUsdPropertyMappingUsesTypedValuesAndCanonicalFallback() {
     assert(std::get<std::string>(mapped.at("name")) == "road");
     assert(std::get<std::vector<std::int64_t>>(mapped.at("numbers")) ==
            std::vector<std::int64_t>({1, 2}));
+    assert(std::get<std::vector<bool>>(mapped.at("flags")) ==
+        std::vector<bool>({true, false}));
+    assert(std::get<std::vector<std::uint64_t>>(mapped.at("unsigneds")) ==
+        std::vector<std::uint64_t>({3, 4}));
+    assert(std::get<std::vector<double>>(mapped.at("doubles")) ==
+        std::vector<double>({1.5, 2.5}));
+    assert(std::get<std::vector<std::string>>(mapped.at("names")) ==
+        std::vector<std::string>({"first", "second"}));
+    assert(std::get<usdvector::authoring::CanonicalJson>(mapped.at("empty"))
+         .text == "[]");
     assert(std::get<usdvector::authoring::CanonicalJson>(mapped.at("mixed"))
                .text == "[1,2.0]");
     assert(std::get<usdvector::authoring::CanonicalJson>(mapped.at("object"))
