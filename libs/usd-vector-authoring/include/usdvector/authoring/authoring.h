@@ -9,6 +9,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace usdvector::authoring {
@@ -36,6 +37,16 @@ struct FeaturePlan {
     std::vector<std::string> nullProperties;
 };
 
+struct CanonicalJson {
+    std::string text;
+};
+
+using UsdPropertyValue = std::variant<
+    bool, std::int64_t, std::uint64_t, double, std::string,
+    std::vector<bool>, std::vector<std::int64_t>, std::vector<std::uint64_t>,
+    std::vector<double>, std::vector<std::string>, CanonicalJson>;
+using UsdProperties = std::map<std::string, UsdPropertyValue>;
+
 struct AuthoringPlan {
     DatasetMetadata metadata;
     Bounds sourceBounds;
@@ -53,5 +64,9 @@ Result<AuthoringPlan> BuildAuthoringPlan(
 
 LocalCoordinate ToLocalCoordinate(const Coordinate& source,
                                   const LocalCoordinate& origin);
+
+std::optional<UsdPropertyValue> ToUsdPropertyValue(
+    const PropertyValue& source);
+UsdProperties ToUsdProperties(const Properties& source);
 
 }  // namespace usdvector::authoring
