@@ -33,6 +33,7 @@ struct FeaturePlan {
     std::optional<FeatureId> sourceId;
     GeometryPlan geometry;
     Properties properties;
+    ForeignMembers foreignMembers;
     std::map<std::string, std::string> propertyNames;
     std::vector<std::string> nullProperties;
 };

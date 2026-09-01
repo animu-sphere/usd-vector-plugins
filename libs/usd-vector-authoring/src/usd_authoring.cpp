@@ -266,6 +266,16 @@ bool AuthorFeatureMetadata(const UsdPrim& prim, const FeaturePlan& feature) {
         prim.SetCustomDataByKey(TfToken("vector:propertyNames"),
                                 VtValue(propertyNames));
     }
+    if (!feature.foreignMembers.empty()) {
+        const auto foreignMembers = ToUsdPropertyValue(
+            PropertyValue{PropertyValue::Object(feature.foreignMembers)});
+        if (foreignMembers.has_value() &&
+            std::holds_alternative<CanonicalJson>(*foreignMembers)) {
+            prim.SetCustomDataByKey(
+                TfToken("vector:foreignMembers"),
+                VtValue(std::get<CanonicalJson>(*foreignMembers).text));
+        }
+    }
     const UsdProperties properties = ToUsdProperties(feature.properties);
     for (const auto& [name, value] : properties) {
         if (!AuthorProperty(prim, name, value)) {
@@ -297,6 +307,16 @@ bool AuthorDatasetMetadata(const UsdPrim& prim, const AuthoringPlan& plan) {
     if (plan.metadata.crs.has_value()) {
         prim.SetCustomDataByKey(TfToken("vector:crs"),
                                 VtValue(*plan.metadata.crs));
+    }
+    if (!plan.metadata.foreignMembers.empty()) {
+        const auto foreignMembers = ToUsdPropertyValue(
+            PropertyValue{PropertyValue::Object(plan.metadata.foreignMembers)});
+        if (foreignMembers.has_value() &&
+            std::holds_alternative<CanonicalJson>(*foreignMembers)) {
+            prim.SetCustomDataByKey(
+                TfToken("vector:foreignMembers"),
+                VtValue(std::get<CanonicalJson>(*foreignMembers).text));
+        }
     }
     if (plan.metadata.featureCount.has_value()) {
         prim.SetCustomDataByKey(TfToken("vector:featureCount"),

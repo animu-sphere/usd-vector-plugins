@@ -73,7 +73,7 @@ assigned by the module that presents the error.
 | `GJSON005` | Error | `FeatureCollection.features` is missing or not an array |
 | `GJSON006` | Error | Feature `properties` is neither object nor null |
 | `GJSON007` | Error | Invalid `bbox` member |
-| `GJSON008` | Warning | Foreign member cannot be preserved within configured limits |
+| `GJSON008` | Warning | Geometry foreign member cannot be preserved by the MVP model; strict mode promotes this to an error |
 
 ## 6. Initial plugin allocation
 

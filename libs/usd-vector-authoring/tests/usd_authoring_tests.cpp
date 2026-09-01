@@ -21,16 +21,21 @@ void TestStageMapping() {
         {{0.0, 0.0}, {2.0, 0.0}, {2.0, 2.0}, {0.0, 2.0}}, {}}};
     feature.properties.emplace("road name",
                                usdvector::PropertyValue{std::int64_t{7}});
+    feature.foreignMembers.emplace(
+        "source_tag", usdvector::PropertyValue{std::string{"survey"}});
+    usdvector::DatasetMetadata metadata{"GeoJSON", std::nullopt, std::nullopt,
+                                        std::nullopt, 1};
+    metadata.foreignMembers.emplace(
+        "vendor", usdvector::PropertyValue{std::int64_t{3}});
     const auto plan = usdvector::authoring::BuildAuthoringPlan(
-        usdvector::DatasetMetadata{"GeoJSON", std::nullopt, std::nullopt,
-                                   std::nullopt, 1},
+        metadata,
         {feature});
     assert(plan.Succeeded());
 
     const auto stage = usdvector::authoring::BuildUsdStage(*plan.value);
     assert(stage.Succeeded());
-    const pxr::UsdPrim vector = stage.value->GetPrimAtPath(pxr::SdfPath("/Vector"));
-    const pxr::UsdPrim mesh = stage.value->GetPrimAtPath(
+    const pxr::UsdPrim vector = stage.value.value()->GetPrimAtPath(pxr::SdfPath("/Vector"));
+    const pxr::UsdPrim mesh = stage.value.value()->GetPrimAtPath(
         pxr::SdfPath("/Vector/Features/id_road_1"));
     assert(vector.IsValid());
     assert(mesh.IsValid());
@@ -43,6 +48,14 @@ void TestStageMapping() {
         vector.GetCustomDataByKey(pxr::TfToken("vector:localOrigin"));
     assert(!origin.IsEmpty());
     assert(origin.Get<pxr::GfVec3d>() == pxr::GfVec3d(1.0, 1.0, 0.0));
+    const pxr::VtValue datasetForeignMembers =
+        vector.GetCustomDataByKey(pxr::TfToken("vector:foreignMembers"));
+    assert(datasetForeignMembers.Get<std::string>() ==
+           "{\"vendor\":3}");
+    const pxr::VtValue featureForeignMembers =
+        mesh.GetCustomDataByKey(pxr::TfToken("vector:foreignMembers"));
+    assert(featureForeignMembers.Get<std::string>() ==
+           "{\"source_tag\":\"survey\"}");
 }
 
 void TestLinearCurveMapping() {
@@ -58,7 +71,7 @@ void TestLinearCurveMapping() {
 
     const auto stage = usdvector::authoring::BuildUsdStage(*plan.value);
     assert(stage.Succeeded());
-    const pxr::UsdPrim curve = stage.value->GetPrimAtPath(
+    const pxr::UsdPrim curve = stage.value.value()->GetPrimAtPath(
         pxr::SdfPath("/Vector/Features/id_line_1"));
     assert(curve.IsA<pxr::UsdGeomBasisCurves>());
 

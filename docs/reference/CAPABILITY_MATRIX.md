@@ -52,13 +52,13 @@ not planned                   explicitly outside project scope
 | --- | --- | --- |
 | String and integer feature IDs | implemented | original type preserved |
 | Missing IDs | implemented | stable sequential names |
-| Duplicate IDs | planned | warning plus deterministic suffix; error in strict mode |
+| Duplicate IDs | implemented | warning plus deterministic suffix; error in strict mode |
 | bool, integer, number, string properties | implemented | typed USD attributes |
 | null properties | implemented | explicit null-name metadata |
 | homogeneous scalar arrays | implemented | typed USD arrays |
 | nested or heterogeneous values | implemented | canonical JSON fallback |
 | Dataset and feature `bbox` | implemented | kept distinct from computed bounds |
-| Foreign members | planned | preserved subject to documented limits |
+| Foreign members | implemented | canonical JSON in `vector:foreignMembers`; geometry-object extras remain diagnosed |
 | Legacy GeoJSON `crs` | implemented | preserved and warned; no reprojection |
 
 ## Coordinates and authoring
