@@ -31,14 +31,17 @@ private:
     Reader(DatasetMetadata metadata, std::vector<Feature> features,
            std::vector<Diagnostic> diagnostics,
            std::shared_ptr<const std::string> source = {},
-           std::vector<std::pair<std::size_t, std::size_t>> featureSpans = {},
+            std::pair<std::size_t, std::size_t> featureArraySpan = {},
+            std::size_t featureCount = 0,
            ParseOptions options = {});
 
     DatasetMetadata metadata_;
     std::vector<Feature> features_;
     std::vector<Diagnostic> diagnostics_;
     std::shared_ptr<const std::string> source_;
-    std::vector<std::pair<std::size_t, std::size_t>> featureSpans_;
+    std::pair<std::size_t, std::size_t> featureArraySpan_;
+    std::size_t featureCount_ = 0;
+    std::size_t nextFeaturePosition_ = 0;
     ParseOptions options_;
     std::size_t nextFeature_ = 0;
 };

@@ -14,6 +14,11 @@ The project has not tagged a release. The release sequence is maintained in
 - A canonical implementation plan for artifact completion, runtime
   composition, scalability measurement, conversion, and indexed formats.
 
+### Performance
+
+- The lazy GeoJSON reader now retains a feature-array cursor instead of one
+  source span per feature while preserving the existing reader contract.
+
 ### Documentation
 
 - Synchronized the design, architecture, capability, diagnostics, build, and
