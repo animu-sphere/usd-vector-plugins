@@ -23,7 +23,7 @@ template and verified against the pinned runtime.
 | M2 | `usdGeoJson` FeatureCollection reader and MVP geometries | done |
 | M3 | OpenUSD authoring, triangulation, local-origin metadata | done |
 | M4 | FileFormat registration, `ArAsset`, arguments, integration tests | done: OpenStrata L0-L5 verified |
-| M5 | Scalability baseline and evidence-led bounded-memory improvements | planned |
+| M5 | Scalability baseline and evidence-led bounded-memory improvements | in progress: baseline evidence |
 | M6 | FlatGeobuf and indexed partial-read investigation | deferred |
 
 ## Building
@@ -35,6 +35,10 @@ cmake -S . -B build/core -G Ninja -DUSDVECTOR_ENABLE_OPENUSD=OFF
 cmake --build build/core
 ctest --test-dir build/core --output-on-failure
 ```
+
+Build the optional M5 scalability runner with
+`-DUSDVECTOR_ENABLE_BENCHMARKS=ON`. Its reproduction procedure and captured
+baseline are in [docs/reports/SCALABILITY_BASELINE.md](docs/reports/SCALABILITY_BASELINE.md).
 
 The OpenStrata workspace manifests are provided for the pinned `cy2026` /
 `usd` environment:

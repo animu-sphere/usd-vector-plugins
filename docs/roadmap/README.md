@@ -10,7 +10,7 @@ count. Status is tracked against acceptance evidence, not directory presence.
 | M2 | `usdGeoJson`: FeatureCollection, all MVP geometries, properties, fixtures | implemented |
 | M3 | `usdVectorAuthoring`: Points, Curves, Mesh triangulation, metadata, origin | implemented |
 | M4 | `vector-geojson`: registration, ArAsset adapter, arguments, integration tests | implemented: OpenStrata L0-L5 verified |
-| M5 | Scalability measurement and evidence-led streaming improvements | planned |
+| M5 | Scalability measurement and evidence-led streaming improvements | in progress: baseline evidence |
 | M6 | FlatGeobuf investigation and indexed partial-read contract | deferred |
 
 ## MVP gates
@@ -36,3 +36,6 @@ Format expansion after the MVP is described in
 [FORMAT_EXPANSION.md](FORMAT_EXPANSION.md). The ordered work from contract sync
 through runtime composition, scalability, conversion, and FlatGeobuf is in
 [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
+
+The current M5 baseline and reproduction procedure are recorded in
+[SCALABILITY_BASELINE.md](../reports/SCALABILITY_BASELINE.md).

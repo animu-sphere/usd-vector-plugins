@@ -5,7 +5,8 @@ procedures, and future work do not drift into one another. The repository is
 at Milestone 4: `usdVectorCore`, the buffered `usdGeoJson` reader,
 `usdVectorAuthoring`, and the `vector-geojson` FileFormat plugin are
 implemented. The plugin vertical slice has been verified through OpenStrata
-L0-L5; scalability measurement is next.
+L0-L5; M5 baseline scalability measurement is available, and bounded-memory
+improvements remain next.
 
 | Category | Answers | Start here |
 | --- | --- | --- |
@@ -14,6 +15,7 @@ L0-L5; scalability measurement is next.
 | [reference/](reference/) | What input is accepted and which diagnostics are stable. | [CAPABILITY_MATRIX.md](reference/CAPABILITY_MATRIX.md), [DIAGNOSTICS.md](reference/DIAGNOSTICS.md) |
 | [guides/](guides/) | How to build and install the project. | [BUILDING.md](guides/BUILDING.md), [INSTALL.md](guides/INSTALL.md) |
 | [roadmap/](roadmap/) | What will be implemented and in which order. | [README.md](roadmap/README.md), [IMPLEMENTATION_PLAN.md](roadmap/IMPLEMENTATION_PLAN.md) |
+| [reports/](reports/) | Measured acceptance evidence and reproducibility records. | [SCALABILITY_BASELINE.md](reports/SCALABILITY_BASELINE.md) |
 
 ## The one-sentence version
 
