@@ -6,6 +6,7 @@
 #endif
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -17,6 +18,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -41,7 +43,7 @@ struct BenchmarkCase {
 
 struct Metrics {
     std::string name;
-    std::size_t requestedFeatures = 0;
+    std::size_t requestedCount = 0;
     std::size_t sourceBytes = 0;
     std::size_t featureCount = 0;
     std::size_t vertexCount = 0;
@@ -51,7 +53,7 @@ struct Metrics {
     double timeToOpenMilliseconds = 0.0;
     std::uint64_t peakRssBytes = 0;
     std::size_t copiedBytes = 0;
-    std::size_t temporaryGeometryBytes = 0;
+    std::size_t retainedFeatureBytes = 0;
 #if defined(USDVECTOR_ENABLE_OPENUSD)
     std::optional<double> usdEmissionMilliseconds;
     std::optional<std::size_t> flattenedLayerBytes;
@@ -139,7 +141,7 @@ std::string BuildSource(const BenchmarkCase& benchmarkCase) {
                 polygon << '[' << std::setprecision(17) << x << ',' << y << ']';
             };
             if (vertex == vertexCount) {
-                point(0.0, 0.0);
+                point(1.0, 0.0);
             } else {
                 const double angle =
                     6.28318530717958647692 * static_cast<double>(vertex) /
@@ -240,20 +242,19 @@ std::size_t GeometryBytes(const usdvector::Geometry& geometry) {
             using Value = std::decay_t<decltype(value)>;
             if constexpr (std::is_same_v<Value, std::monostate> ||
                           std::is_same_v<Value, usdvector::Point>) {
-                return sizeof(Value);
+                return 0;
             } else if constexpr (std::is_same_v<Value, usdvector::MultiPoint> ||
                                  std::is_same_v<Value, usdvector::LineString>) {
-                return sizeof(Value) + value.coordinates.capacity() *
-                                           sizeof(usdvector::Coordinate);
+                return value.coordinates.capacity() * sizeof(usdvector::Coordinate);
             } else if constexpr (std::is_same_v<Value, usdvector::MultiLineString>) {
-                std::size_t bytes = sizeof(Value) +
-                                    value.lines.capacity() * sizeof(usdvector::LineString);
+                std::size_t bytes =
+                    value.lines.capacity() * sizeof(usdvector::LineString);
                 for (const auto& line : value.lines) {
                     bytes += line.coordinates.capacity() * sizeof(usdvector::Coordinate);
                 }
                 return bytes;
             } else if constexpr (std::is_same_v<Value, usdvector::Polygon>) {
-                std::size_t bytes = sizeof(Value) +
+                std::size_t bytes =
                                     value.outer.capacity() * sizeof(usdvector::Coordinate) +
                                     value.holes.capacity() * sizeof(usdvector::Ring);
                 for (const auto& hole : value.holes) {
@@ -261,7 +262,7 @@ std::size_t GeometryBytes(const usdvector::Geometry& geometry) {
                 }
                 return bytes;
             } else {
-                std::size_t bytes = sizeof(Value) +
+                std::size_t bytes =
                                     value.polygons.capacity() * sizeof(usdvector::Polygon);
                 for (const auto& polygon : value.polygons) {
                     bytes += polygon.outer.capacity() * sizeof(usdvector::Coordinate);
@@ -285,20 +286,20 @@ std::size_t PropertyBytes(const usdvector::PropertyValue& property) {
                           std::is_same_v<Value, std::int64_t> ||
                           std::is_same_v<Value, std::uint64_t> ||
                           std::is_same_v<Value, double>) {
-                return sizeof(Value);
+                return 0;
             } else if constexpr (std::is_same_v<Value, std::string>) {
-                return sizeof(Value) + value.capacity();
+                return value.capacity();
             } else if constexpr (std::is_same_v<Value, usdvector::PropertyValue::Array>) {
-                std::size_t bytes = sizeof(Value) +
-                                    value.capacity() * sizeof(usdvector::PropertyValue);
+                std::size_t bytes =
+                    value.capacity() * sizeof(usdvector::PropertyValue);
                 for (const auto& item : value) {
                     bytes += PropertyBytes(item);
                 }
                 return bytes;
             } else {
-                std::size_t bytes = sizeof(Value) +
-                                    value.size() * sizeof(std::pair<const std::string,
-                                                                    usdvector::PropertyValue>);
+                std::size_t bytes =
+                    value.size() * sizeof(std::pair<const std::string,
+                                                     usdvector::PropertyValue>);
                 for (const auto& [name, item] : value) {
                     bytes += name.capacity() + PropertyBytes(item);
                 }
@@ -332,7 +333,11 @@ std::uint64_t PeakRssBytes() {
     if (getrusage(RUSAGE_SELF, &usage) != 0) {
         return 0;
     }
+#if defined(__APPLE__)
+    return static_cast<std::uint64_t>(usage.ru_maxrss);
+#else
     return static_cast<std::uint64_t>(usage.ru_maxrss) * 1024;
+#endif
 #endif
 }
 
@@ -346,7 +351,7 @@ std::string DiagnosticSummary(const std::vector<usdvector::Diagnostic>& diagnost
 Metrics Measure(const BenchmarkCase& benchmarkCase) {
     Metrics metrics;
     metrics.name = benchmarkCase.name;
-    metrics.requestedFeatures = benchmarkCase.count;
+    metrics.requestedCount = benchmarkCase.count;
     const std::string source = BuildSource(benchmarkCase);
     metrics.sourceBytes = source.size();
     metrics.copiedBytes = source.size();
@@ -389,7 +394,7 @@ Metrics Measure(const BenchmarkCase& benchmarkCase) {
     metrics.featureCount = features.size();
     for (const auto& feature : features) {
         metrics.vertexCount += GeometryVertexCount(feature.geometry);
-        metrics.temporaryGeometryBytes += FeatureBytes(feature);
+        metrics.retainedFeatureBytes += FeatureBytes(feature);
     }
 
     const auto authoringStart = Clock::now();
@@ -423,24 +428,25 @@ Metrics Measure(const BenchmarkCase& benchmarkCase) {
     return metrics;
 }
 
-void WriteHeader(std::ostream& output) {
-    output << "case,requested_features,source_bytes,features,vertices,parse_ms,"
+bool WriteHeader(std::ostream& output) {
+    output << "case,requested_count,source_bytes,features,vertices,parse_ms,"
               "time_to_first_feature_ms,authoring_plan_ms,time_to_open_ms,"
-              "peak_rss_bytes,copied_bytes,temporary_geometry_bytes";
+              "peak_rss_bytes,copied_bytes,retained_feature_bytes";
 #if defined(USDVECTOR_ENABLE_OPENUSD)
     output << ",usd_emission_ms,flattened_layer_bytes";
 #endif
     output << '\n';
+    return static_cast<bool>(output);
 }
 
-void WriteMetrics(std::ostream& output, const Metrics& metrics) {
-    output << metrics.name << ',' << metrics.requestedFeatures << ','
+bool WriteMetrics(std::ostream& output, const Metrics& metrics) {
+    output << metrics.name << ',' << metrics.requestedCount << ','
            << metrics.sourceBytes << ',' << metrics.featureCount << ','
            << metrics.vertexCount << ',' << std::setprecision(12)
            << metrics.parseMilliseconds << ',' << metrics.firstFeatureMilliseconds
            << ',' << metrics.authoringMilliseconds << ','
            << metrics.timeToOpenMilliseconds << ',' << metrics.peakRssBytes << ','
-           << metrics.copiedBytes << ',' << metrics.temporaryGeometryBytes;
+           << metrics.copiedBytes << ',' << metrics.retainedFeatureBytes;
 #if defined(USDVECTOR_ENABLE_OPENUSD)
     output << ',';
     if (metrics.usdEmissionMilliseconds.has_value()) {
@@ -452,6 +458,13 @@ void WriteMetrics(std::ostream& output, const Metrics& metrics) {
     }
 #endif
     output << '\n';
+    return static_cast<bool>(output);
+}
+
+bool ParseCount(std::string_view text, std::size_t& count) {
+    const auto result = std::from_chars(text.data(), text.data() + text.size(), count);
+    return result.ec == std::errc() && result.ptr == text.data() + text.size() &&
+           count > 0;
 }
 
 std::vector<BenchmarkCase> Cases(const std::optional<std::string>& selected,
@@ -485,7 +498,10 @@ int main(int argc, char** argv) {
         if (argument == "--case" && index + 1 < argc) {
             selectedCase = argv[++index];
         } else if (argument == "--count" && index + 1 < argc) {
-            count = std::stoull(argv[++index]);
+            if (!ParseCount(argv[++index], count)) {
+                std::cerr << "--count must be a positive integer\n";
+                return 2;
+            }
         } else if (argument == "--output" && index + 1 < argc) {
             outputPath = argv[++index];
         } else if (argument == "--help") {
@@ -513,9 +529,16 @@ int main(int argc, char** argv) {
     }
 
     try {
-        WriteHeader(*output);
+        if (!WriteHeader(*output)) {
+            std::cerr << "could not write benchmark output\n";
+            return 1;
+        }
         for (const auto& benchmarkCase : Cases(selectedCase, count)) {
-            WriteMetrics(*output, Measure(benchmarkCase));
+            const Metrics metrics = Measure(benchmarkCase);
+            if (!WriteMetrics(*output, metrics)) {
+                std::cerr << "could not write benchmark output\n";
+                return 1;
+            }
         }
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
