@@ -119,6 +119,20 @@ void TestLazyReaderRootDiagnostics() {
     assert(malformed.diagnostics.size() == 1);
     assert(malformed.diagnostics[0].code ==
            usdvector::DiagnosticCode::MalformedJson);
+
+    auto invalidFeatures = usdvector::geojson::Reader::CreateLazy(
+        R"({"type":"FeatureCollection","features":{}})");
+    assert(!invalidFeatures.Succeeded());
+    assert(invalidFeatures.diagnostics.size() == 1);
+    assert(invalidFeatures.diagnostics[0].code ==
+           usdvector::DiagnosticCode::InvalidFeatureCollection);
+
+    auto invalidFeature = usdvector::geojson::Reader::CreateLazy(
+        R"({"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"GeometryCollection","geometries":[]},"properties":{}}]})");
+    assert(!invalidFeature.Succeeded());
+    assert(!invalidFeature.diagnostics.empty());
+    assert(invalidFeature.diagnostics[0].code ==
+           usdvector::DiagnosticCode::UnsupportedGeometryType);
 }
 
 void TestStableDiagnostics() {
