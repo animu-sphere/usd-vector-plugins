@@ -75,6 +75,38 @@ void TestAllGeometryFamiliesAndEndOfStream() {
     assert(end.Succeeded() && !end.value->has_value());
 }
 
+void TestLazyReaderMatchesBufferedReader() {
+    auto buffered = usdvector::geojson::Reader::Create(Sample());
+    auto lazy = usdvector::geojson::Reader::CreateLazy(Sample());
+    assert(buffered.Succeeded() && lazy.Succeeded());
+
+    auto bufferedMetadata = buffered.value->ReadMetadata();
+    auto lazyMetadata = lazy.value->ReadMetadata();
+    assert(bufferedMetadata.Succeeded() && lazyMetadata.Succeeded());
+    assert(lazyMetadata.value->format == bufferedMetadata.value->format);
+    assert(lazyMetadata.value->featureCount ==
+           bufferedMetadata.value->featureCount);
+    assert(lazyMetadata.value->computedBounds.has_value());
+    assert(bufferedMetadata.value->computedBounds.has_value());
+    assert(lazyMetadata.value->computedBounds->minX ==
+           bufferedMetadata.value->computedBounds->minX);
+    assert(lazyMetadata.value->computedBounds->maxY ==
+           bufferedMetadata.value->computedBounds->maxY);
+    assert(lazyMetadata.diagnostics.size() == bufferedMetadata.diagnostics.size());
+
+    for (int index = 0; index < 7; ++index) {
+        auto bufferedFeature = buffered.value->ReadNext();
+        auto lazyFeature = lazy.value->ReadNext();
+        assert(bufferedFeature.Succeeded() && lazyFeature.Succeeded());
+        assert(bufferedFeature.value->has_value() && lazyFeature.value->has_value());
+        assert(usdvector::GetGeometryType(lazyFeature.value->value().geometry) ==
+               usdvector::GetGeometryType(bufferedFeature.value->value().geometry));
+        assert(lazyFeature.value->value().properties.size() ==
+               bufferedFeature.value->value().properties.size());
+    }
+    assert(!lazy.value->ReadNext().value->has_value());
+}
+
 void TestStableDiagnostics() {
     auto malformed = usdvector::geojson::Reader::Create("{");
     assert(!malformed.Succeeded());
@@ -115,6 +147,7 @@ int main() {
     try {
         TestFeatureCollectionAndProperties();
         TestAllGeometryFamiliesAndEndOfStream();
+        TestLazyReaderMatchesBufferedReader();
         TestStableDiagnostics();
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

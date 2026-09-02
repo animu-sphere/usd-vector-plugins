@@ -2,6 +2,7 @@
 
 #include "usdvector/core/reader.h"
 
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -19,17 +20,23 @@ class Reader final : public FeatureReader {
 public:
     static Result<Reader> Create(std::string source,
                                   const ParseOptions& options = {});
+    static Result<Reader> CreateLazy(std::string source,
+                                      const ParseOptions& options = {});
 
     Result<DatasetMetadata> ReadMetadata() override;
     Result<std::optional<Feature>> ReadNext() override;
 
 private:
     Reader(DatasetMetadata metadata, std::vector<Feature> features,
-           std::vector<Diagnostic> diagnostics);
+           std::vector<Diagnostic> diagnostics,
+           std::shared_ptr<const void> document = {},
+           ParseOptions options = {});
 
     DatasetMetadata metadata_;
     std::vector<Feature> features_;
     std::vector<Diagnostic> diagnostics_;
+    std::shared_ptr<const void> document_;
+    ParseOptions options_;
     std::size_t nextFeature_ = 0;
 };
 

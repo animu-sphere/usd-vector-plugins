@@ -5,6 +5,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <initializer_list>
 #include <limits>
@@ -367,14 +368,101 @@ bool ParseGeometry(const Json& value, Geometry& geometry,
     return true;
 }
 
+Feature ParseFeature(const Json& sourceFeature, std::size_t index,
+                     const ParseOptions& options,
+                     std::vector<Diagnostic>& diagnostics) {
+    Feature feature;
+    const auto featureIndex = static_cast<std::uint64_t>(index);
+    const std::size_t diagnosticStart = diagnostics.size();
+    if (!sourceFeature.is_object() || !sourceFeature.contains("type") ||
+        !sourceFeature["type"].is_string() ||
+        sourceFeature["type"].get<std::string>() != "Feature") {
+        diagnostics.push_back(Issue(
+            DiagnosticCode::InvalidGeoJsonMember, Severity::Error,
+            "FeatureCollection member must be a Feature object", featureIndex));
+        return feature;
+    }
+    ParseForeignMembers(sourceFeature,
+                        {"type", "id", "geometry", "properties", "bbox"},
+                        feature.foreignMembers, diagnostics, featureIndex);
+    if (sourceFeature.contains("id") && !sourceFeature["id"].is_null()) {
+        const Json& id = sourceFeature["id"];
+        if (id.is_string()) {
+            feature.id = FeatureId{id.get<std::string>()};
+        } else if (id.is_number_unsigned()) {
+            feature.id = FeatureId{id.get<std::uint64_t>()};
+        } else if (id.is_number_integer()) {
+            feature.id = FeatureId{id.get<std::int64_t>()};
+        } else {
+            diagnostics.push_back(Issue(
+                DiagnosticCode::InvalidGeoJsonMember, Severity::Error,
+                "feature id must be a string or integer", featureIndex));
+        }
+    }
+    if (!sourceFeature.contains("geometry")) {
+        diagnostics.push_back(Issue(
+            DiagnosticCode::InvalidGeoJsonMember, Severity::Error,
+            "Feature is missing geometry", featureIndex));
+    } else {
+        ParseGeometry(sourceFeature["geometry"], feature.geometry, options,
+                      diagnostics);
+    }
+    if (sourceFeature.contains("properties")) {
+        ParseProperties(sourceFeature["properties"], feature.properties,
+                        diagnostics, featureIndex);
+    }
+    if (sourceFeature.contains("bbox")) {
+        Bounds bounds;
+        if (ParseBounds(sourceFeature["bbox"], bounds, diagnostics)) {
+            feature.declaredBounds = bounds;
+        }
+    }
+    std::vector<Diagnostic> geometryDiagnostics =
+        ValidateGeometry(feature.geometry, ValidationOptions{options.strict});
+    diagnostics.insert(diagnostics.end(), geometryDiagnostics.begin(),
+                       geometryDiagnostics.end());
+    for (std::size_t diagnostic = diagnosticStart; diagnostic < diagnostics.size();
+         ++diagnostic) {
+        if (!diagnostics[diagnostic].featureIndex.has_value()) {
+            diagnostics[diagnostic].featureIndex = featureIndex;
+        }
+    }
+    return feature;
+}
+
+void IncludeBounds(Bounds& target, const Bounds& source) {
+    if (source.empty) {
+        return;
+    }
+    if (target.empty) {
+        target = source;
+        return;
+    }
+    target.minX = std::min(target.minX, source.minX);
+    target.minY = std::min(target.minY, source.minY);
+    target.maxX = std::max(target.maxX, source.maxX);
+    target.maxY = std::max(target.maxY, source.maxY);
+    if (source.minZ.has_value()) {
+        if (!target.minZ.has_value()) {
+            target.minZ = source.minZ;
+            target.maxZ = source.maxZ;
+        } else {
+            target.minZ = std::min(*target.minZ, *source.minZ);
+            target.maxZ = std::max(*target.maxZ, *source.maxZ);
+        }
+    }
+}
+
 struct ParsedDocument {
     DatasetMetadata metadata;
     std::vector<Feature> features;
     std::vector<Diagnostic> diagnostics;
+    std::shared_ptr<Json> root;
 };
 
 Result<ParsedDocument> ParseDocument(std::string_view source,
-                                      const ParseOptions& options) {
+                                      const ParseOptions& options,
+                                      bool retainFeatures = true) {
     Json root;
     try {
         root = Json::parse(source.begin(), source.end());
@@ -383,108 +471,56 @@ Result<ParsedDocument> ParseDocument(std::string_view source,
             DiagnosticCode::MalformedJson, Severity::Error,
             std::string("malformed JSON: ") + error.what())});
     }
+    auto documentRoot = std::make_shared<Json>(std::move(root));
+    const Json& rootDocument = *documentRoot;
 
     ParsedDocument document;
     document.metadata.format = "GeoJSON";
-    if (!root.is_object() || !root.contains("type") ||
-        !root["type"].is_string()) {
+    if (!rootDocument.is_object() || !rootDocument.contains("type") ||
+        !rootDocument["type"].is_string()) {
         return Result<ParsedDocument>::Failure({Issue(
             DiagnosticCode::UnsupportedGeoJsonRoot, Severity::Error,
             "root must be a GeoJSON object with a type")});
     }
-    if (root["type"].get<std::string>() != "FeatureCollection") {
+    if (rootDocument["type"].get<std::string>() != "FeatureCollection") {
         return Result<ParsedDocument>::Failure({Issue(
             DiagnosticCode::UnsupportedGeoJsonRoot, Severity::Error,
             "root type must be FeatureCollection")});
     }
-    ParseForeignMembers(root, {"type", "features", "bbox", "crs"},
+    ParseForeignMembers(rootDocument, {"type", "features", "bbox", "crs"},
                         document.metadata.foreignMembers, document.diagnostics,
                         std::nullopt);
-    if (!root.contains("features") || !root["features"].is_array()) {
+    if (!rootDocument.contains("features") ||
+        !rootDocument["features"].is_array()) {
         return Result<ParsedDocument>::Failure({Issue(
             DiagnosticCode::InvalidFeatureCollection, Severity::Error,
             "FeatureCollection.features must be an array")});
     }
-    if (root.contains("bbox")) {
+    if (rootDocument.contains("bbox")) {
         Bounds bounds;
-        if (!ParseBounds(root["bbox"], bounds, document.diagnostics)) {
+        if (!ParseBounds(rootDocument["bbox"], bounds, document.diagnostics)) {
             return Result<ParsedDocument>::Failure(document.diagnostics);
         }
         document.metadata.declaredBounds = bounds;
     }
-    if (root.contains("crs")) {
-        document.metadata.crs = root["crs"].dump();
+    if (rootDocument.contains("crs")) {
+        document.metadata.crs = rootDocument["crs"].dump();
         document.diagnostics.push_back(Issue(
             DiagnosticCode::LegacyGeoJsonCrs, Severity::Warning,
             "legacy crs member was preserved as an extension"));
     }
 
-    for (std::size_t index = 0; index < root["features"].size(); ++index) {
-        const Json& sourceFeature = root["features"][index];
-        const auto featureIndex = static_cast<std::uint64_t>(index);
-        const std::size_t diagnosticStart = document.diagnostics.size();
-        if (!sourceFeature.is_object() || !sourceFeature.contains("type") ||
-            !sourceFeature["type"].is_string() ||
-            sourceFeature["type"].get<std::string>() != "Feature") {
-            document.diagnostics.push_back(Issue(
-                DiagnosticCode::InvalidGeoJsonMember, Severity::Error,
-                "FeatureCollection member must be a Feature object", featureIndex));
-            continue;
+    Bounds computedBounds;
+    for (std::size_t index = 0; index < rootDocument["features"].size(); ++index) {
+        Feature feature = ParseFeature(rootDocument["features"][index], index, options,
+                                       document.diagnostics);
+        IncludeBounds(computedBounds, ComputeBounds(feature.geometry));
+        if (retainFeatures) {
+            document.features.push_back(std::move(feature));
         }
-        Feature feature;
-        ParseForeignMembers(sourceFeature,
-                            {"type", "id", "geometry", "properties", "bbox"},
-                            feature.foreignMembers, document.diagnostics,
-                            featureIndex);
-        if (sourceFeature.contains("id") && !sourceFeature["id"].is_null()) {
-            const Json& id = sourceFeature["id"];
-            if (id.is_string()) {
-                feature.id = FeatureId{id.get<std::string>()};
-            } else if (id.is_number_unsigned()) {
-                feature.id = FeatureId{id.get<std::uint64_t>()};
-            } else if (id.is_number_integer()) {
-                feature.id = FeatureId{id.get<std::int64_t>()};
-            } else {
-                document.diagnostics.push_back(Issue(
-                    DiagnosticCode::InvalidGeoJsonMember, Severity::Error,
-                    "feature id must be a string or integer", featureIndex));
-            }
-        }
-        if (!sourceFeature.contains("geometry")) {
-            document.diagnostics.push_back(Issue(
-                DiagnosticCode::InvalidGeoJsonMember, Severity::Error,
-                "Feature is missing geometry", featureIndex));
-        } else if (!ParseGeometry(sourceFeature["geometry"], feature.geometry,
-                      options, document.diagnostics)) {
-        }
-        if (sourceFeature.contains("properties")) {
-            ParseProperties(sourceFeature["properties"], feature.properties,
-                            document.diagnostics, featureIndex);
-        } else {
-            feature.properties = {};
-        }
-        if (sourceFeature.contains("bbox")) {
-            Bounds bounds;
-            if (ParseBounds(sourceFeature["bbox"], bounds, document.diagnostics)) {
-                feature.declaredBounds = bounds;
-            }
-        }
-        std::vector<Diagnostic> geometryDiagnostics =
-            ValidateGeometry(feature.geometry, ValidationOptions{options.strict});
-        document.diagnostics.insert(document.diagnostics.end(),
-                                    geometryDiagnostics.begin(),
-                                    geometryDiagnostics.end());
-        for (std::size_t diagnostic = diagnosticStart;
-             diagnostic < document.diagnostics.size(); ++diagnostic) {
-            if (!document.diagnostics[diagnostic].featureIndex.has_value()) {
-                document.diagnostics[diagnostic].featureIndex = featureIndex;
-            }
-        }
-        document.features.push_back(std::move(feature));
     }
 
-    document.metadata.featureCount = document.features.size();
-    Bounds computedBounds = ComputeBounds(document.features);
+    document.metadata.featureCount = rootDocument["features"].size();
     document.metadata.computedBounds = computedBounds;
     if (document.metadata.declaredBounds.has_value() &&
         !BoundsEqual(*document.metadata.declaredBounds, computedBounds)) {
@@ -496,6 +532,7 @@ Result<ParsedDocument> ParseDocument(std::string_view source,
     if (HasErrors(document.diagnostics)) {
         return Result<ParsedDocument>::Failure(document.diagnostics);
     }
+    document.root = std::move(documentRoot);
     Result<ParsedDocument> result;
     result.value = std::move(document);
     result.diagnostics = result.value->diagnostics;
@@ -517,10 +554,13 @@ Result<DatasetMetadata> ParseMetadata(std::string_view source,
 }
 
 Reader::Reader(DatasetMetadata metadata, std::vector<Feature> features,
-               std::vector<Diagnostic> diagnostics)
+           std::vector<Diagnostic> diagnostics,
+           std::shared_ptr<const void> document, ParseOptions options)
     : metadata_(std::move(metadata)),
       features_(std::move(features)),
-      diagnostics_(std::move(diagnostics)) {}
+    diagnostics_(std::move(diagnostics)),
+    document_(std::move(document)),
+    options_(options) {}
 
 Result<Reader> Reader::Create(std::string source, const ParseOptions& options) {
     Result<ParsedDocument> parsed = ParseDocument(source, options);
@@ -532,6 +572,18 @@ Result<Reader> Reader::Create(std::string source, const ParseOptions& options) {
                                           std::move(parsed.diagnostics)));
 }
 
+Result<Reader> Reader::CreateLazy(std::string source,
+                                  const ParseOptions& options) {
+    Result<ParsedDocument> parsed = ParseDocument(source, options, false);
+    if (!parsed.Succeeded()) {
+        return Result<Reader>::Failure(std::move(parsed.diagnostics));
+    }
+    std::shared_ptr<const void> document = std::move(parsed.value->root);
+    return Result<Reader>::Success(Reader(
+        std::move(parsed.value->metadata), {}, std::move(parsed.diagnostics),
+        std::move(document), options));
+}
+
 Result<DatasetMetadata> Reader::ReadMetadata() {
     Result<DatasetMetadata> result;
     result.value = metadata_;
@@ -540,6 +592,23 @@ Result<DatasetMetadata> Reader::ReadMetadata() {
 }
 
 Result<std::optional<Feature>> Reader::ReadNext() {
+    if (document_) {
+        const auto document = std::static_pointer_cast<const Json>(document_);
+        const Json& features = (*document)["features"];
+        if (nextFeature_ == features.size()) {
+            return Result<std::optional<Feature>>::Success(std::nullopt);
+        }
+        std::vector<Diagnostic> diagnostics;
+        Feature feature = ParseFeature(features[nextFeature_], nextFeature_, options_,
+                                       diagnostics);
+        if (HasErrors(diagnostics)) {
+            return Result<std::optional<Feature>>::Failure(
+                std::move(diagnostics));
+        }
+        ++nextFeature_;
+        return Result<std::optional<Feature>>::Success(
+            std::optional<Feature>{std::move(feature)});
+    }
     if (nextFeature_ == features_.size()) {
         return Result<std::optional<Feature>>::Success(std::nullopt);
     }

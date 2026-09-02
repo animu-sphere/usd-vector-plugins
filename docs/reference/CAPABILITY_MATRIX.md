@@ -80,8 +80,9 @@ default table is [FILE_FORMAT_ARGUMENTS.md](../architecture/FILE_FORMAT_ARGUMENT
 
 ## Known MVP limitations
 
-- GeoJSON may initially be buffered in memory even though the reader API is
-  streaming-compatible.
+- The default GeoJSON factory remains buffered. A tested lazy materialization
+  candidate is available, but it still parses a complete JSON DOM at open and
+  is not a bounded-memory streaming implementation.
 - GeoJSON has no spatial index; bounding-box filtering would still require a
   full scan and is therefore deferred.
 - No implicit reprojection or axis conversion occurs.

@@ -42,6 +42,7 @@ struct BenchmarkCase {
 };
 
 struct Metrics {
+    std::string reader;
     std::string name;
     std::size_t requestedCount = 0;
     std::size_t sourceBytes = 0;
@@ -348,8 +349,9 @@ std::string DiagnosticSummary(const std::vector<usdvector::Diagnostic>& diagnost
     return usdvector::DiagnosticCodeString(diagnostics.front().code);
 }
 
-Metrics Measure(const BenchmarkCase& benchmarkCase) {
+Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy) {
     Metrics metrics;
+    metrics.reader = lazy ? "lazy" : "buffered";
     metrics.name = benchmarkCase.name;
     metrics.requestedCount = benchmarkCase.count;
     const std::string source = BuildSource(benchmarkCase);
@@ -357,7 +359,8 @@ Metrics Measure(const BenchmarkCase& benchmarkCase) {
     metrics.copiedBytes = source.size();
 
     const auto openStart = Clock::now();
-    auto reader = usdvector::geojson::Reader::Create(source);
+    auto reader = lazy ? usdvector::geojson::Reader::CreateLazy(source)
+                       : usdvector::geojson::Reader::Create(source);
     const auto opened = Clock::now();
     if (!reader.Succeeded()) {
         throw std::runtime_error("benchmark source could not be parsed: " +
@@ -429,7 +432,7 @@ Metrics Measure(const BenchmarkCase& benchmarkCase) {
 }
 
 bool WriteHeader(std::ostream& output) {
-    output << "case,requested_count,source_bytes,features,vertices,parse_ms,"
+    output << "reader,case,requested_count,source_bytes,features,vertices,parse_ms,"
               "time_to_first_feature_ms,authoring_plan_ms,time_to_open_ms,"
               "peak_rss_bytes,copied_bytes,retained_feature_bytes";
 #if defined(USDVECTOR_ENABLE_OPENUSD)
@@ -440,7 +443,8 @@ bool WriteHeader(std::ostream& output) {
 }
 
 bool WriteMetrics(std::ostream& output, const Metrics& metrics) {
-    output << metrics.name << ',' << metrics.requestedCount << ','
+    output << metrics.reader << ',' << metrics.name << ','
+           << metrics.requestedCount << ','
            << metrics.sourceBytes << ',' << metrics.featureCount << ','
            << metrics.vertexCount << ',' << std::setprecision(12)
            << metrics.parseMilliseconds << ',' << metrics.firstFeatureMilliseconds
@@ -482,7 +486,8 @@ std::vector<BenchmarkCase> Cases(const std::optional<std::string>& selected,
 }
 
 void PrintUsage() {
-    std::cerr << "usage: usd-vector-benchmark [--case NAME] [--count N] [--output FILE]\n"
+    std::cerr << "usage: usd-vector-benchmark [--reader MODE] [--case NAME] [--count N] [--output FILE]\n"
+                 "readers: buffered, lazy\n"
                  "cases: points, lines, large-polygon, small-polygons, "
                  "property-heavy, large-coordinates\n";
 }
@@ -490,12 +495,20 @@ void PrintUsage() {
 }  // namespace
 
 int main(int argc, char** argv) {
+    bool lazy = false;
     std::optional<std::string> selectedCase;
     std::size_t count = 1000;
     std::optional<std::string> outputPath;
     for (int index = 1; index < argc; ++index) {
         const std::string argument = argv[index];
-        if (argument == "--case" && index + 1 < argc) {
+        if (argument == "--reader" && index + 1 < argc) {
+            const std::string reader = argv[++index];
+            if (reader != "buffered" && reader != "lazy") {
+                std::cerr << "--reader must be buffered or lazy\n";
+                return 2;
+            }
+            lazy = reader == "lazy";
+        } else if (argument == "--case" && index + 1 < argc) {
             selectedCase = argv[++index];
         } else if (argument == "--count" && index + 1 < argc) {
             if (!ParseCount(argv[++index], count)) {
@@ -534,7 +547,7 @@ int main(int argc, char** argv) {
             return 1;
         }
         for (const auto& benchmarkCase : Cases(selectedCase, count)) {
-            const Metrics metrics = Measure(benchmarkCase);
+            const Metrics metrics = Measure(benchmarkCase, lazy);
             if (!WriteMetrics(*output, metrics)) {
                 std::cerr << "could not write benchmark output\n";
                 return 1;

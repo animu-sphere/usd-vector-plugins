@@ -19,8 +19,15 @@ endif()
 if(BUILD_TESTING)
     add_test(NAME usd-vector-benchmark-smoke
         COMMAND $<TARGET_FILE:usd-vector-benchmark> --case points --count 2)
+    add_test(NAME usd-vector-benchmark-lazy-smoke
+        COMMAND $<TARGET_FILE:usd-vector-benchmark> --reader lazy
+                --case points --count 2)
     add_test(NAME usd-vector-benchmark-invalid-count
         COMMAND $<TARGET_FILE:usd-vector-benchmark> --case points --count invalid)
     set_tests_properties(usd-vector-benchmark-invalid-count
+        PROPERTIES WILL_FAIL TRUE)
+    add_test(NAME usd-vector-benchmark-invalid-reader
+        COMMAND $<TARGET_FILE:usd-vector-benchmark> --reader invalid)
+    set_tests_properties(usd-vector-benchmark-invalid-reader
         PROPERTIES WILL_FAIL TRUE)
 endif()
