@@ -81,8 +81,9 @@ default table is [FILE_FORMAT_ARGUMENTS.md](../architecture/FILE_FORMAT_ARGUMENT
 ## Known MVP limitations
 
 - The default GeoJSON factory remains buffered. A tested lazy materialization
-  candidate is available, but it still parses a complete JSON DOM at open and
-  is not a bounded-memory streaming implementation.
+  candidate retains source text and feature ranges instead of a complete JSON
+  DOM or all project-owned Features. It still validates every feature at open,
+  so it is not an incremental first-feature or fully bounded-memory parser.
 - GeoJSON has no spatial index; bounding-box filtering would still require a
   full scan and is therefore deferred.
 - No implicit reprojection or axis conversion occurs.

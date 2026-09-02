@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace usdvector::geojson {
@@ -29,13 +30,15 @@ public:
 private:
     Reader(DatasetMetadata metadata, std::vector<Feature> features,
            std::vector<Diagnostic> diagnostics,
-           std::shared_ptr<const void> document = {},
+           std::shared_ptr<const std::string> source = {},
+           std::vector<std::pair<std::size_t, std::size_t>> featureSpans = {},
            ParseOptions options = {});
 
     DatasetMetadata metadata_;
     std::vector<Feature> features_;
     std::vector<Diagnostic> diagnostics_;
-    std::shared_ptr<const void> document_;
+    std::shared_ptr<const std::string> source_;
+    std::vector<std::pair<std::size_t, std::size_t>> featureSpans_;
     ParseOptions options_;
     std::size_t nextFeature_ = 0;
 };

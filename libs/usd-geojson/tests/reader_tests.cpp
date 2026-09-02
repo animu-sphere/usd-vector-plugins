@@ -107,6 +107,20 @@ void TestLazyReaderMatchesBufferedReader() {
     assert(!lazy.value->ReadNext().value->has_value());
 }
 
+void TestLazyReaderRootDiagnostics() {
+    auto unsupported = usdvector::geojson::Reader::CreateLazy("[]");
+    assert(!unsupported.Succeeded());
+    assert(unsupported.diagnostics.size() == 1);
+    assert(unsupported.diagnostics[0].code ==
+           usdvector::DiagnosticCode::UnsupportedGeoJsonRoot);
+
+    auto malformed = usdvector::geojson::Reader::CreateLazy("{");
+    assert(!malformed.Succeeded());
+    assert(malformed.diagnostics.size() == 1);
+    assert(malformed.diagnostics[0].code ==
+           usdvector::DiagnosticCode::MalformedJson);
+}
+
 void TestStableDiagnostics() {
     auto malformed = usdvector::geojson::Reader::Create("{");
     assert(!malformed.Succeeded());
@@ -148,6 +162,7 @@ int main() {
         TestFeatureCollectionAndProperties();
         TestAllGeometryFamiliesAndEndOfStream();
         TestLazyReaderMatchesBufferedReader();
+        TestLazyReaderRootDiagnostics();
         TestStableDiagnostics();
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
