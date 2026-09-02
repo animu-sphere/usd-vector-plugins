@@ -460,7 +460,7 @@ struct ScannedRoot {
     bool hasFeatures = false;
     bool featuresIsArray = false;
     SourceSpan featuresSpan;
-    std::vector<SourceSpan> featureSpans;
+    std::size_t featureCount = 0;
 };
 
 class JsonSpanScanner {
@@ -499,12 +499,10 @@ public:
                 root.hasFeatures = true;
                 root.featuresSpan.first = position_;
                 if (position_ < source_.size() && source_[position_] == '[') {
-                    std::vector<SourceSpan> featureSpans;
-                    if (!ParseArray(&featureSpans)) {
+                    if (!ParseArray(nullptr, &root.featureCount)) {
                         return false;
                     }
                     root.featuresIsArray = true;
-                    root.featureSpans = std::move(featureSpans);
                 } else if (!ParseValue(root.featuresSpan)) {
                     return false;
                 }
@@ -527,6 +525,54 @@ public:
             SkipWhitespace();
         }
         return false;
+    }
+
+    template <typename Callback>
+    bool ScanArrayElements(const SourceSpan& arraySpan, Callback&& callback) {
+        position_ = arraySpan.first;
+        if (!Consume('[')) {
+            return false;
+        }
+        SkipWhitespace();
+        if (Consume(']')) {
+            return position_ == arraySpan.second;
+        }
+        while (position_ < source_.size()) {
+            SourceSpan value;
+            if (!ParseValue(value) || !callback(value)) {
+                return false;
+            }
+            SkipWhitespace();
+            if (Consume(']')) {
+                return position_ == arraySpan.second;
+            }
+            if (!Consume(',')) {
+                return false;
+            }
+            SkipWhitespace();
+        }
+        return false;
+    }
+
+    bool ScanNextArrayElement(const SourceSpan& arraySpan,
+                              std::size_t& position, SourceSpan& element) {
+        position_ = position;
+        SkipWhitespace();
+        if (position_ >= arraySpan.second || source_[position_] == ']') {
+            return false;
+        }
+        if (!ParseValue(element)) {
+            return false;
+        }
+        SkipWhitespace();
+        if (position_ < arraySpan.second && source_[position_] == ',') {
+            ++position_;
+        } else if (position_ >= arraySpan.second ||
+                   source_[position_] != ']') {
+            return false;
+        }
+        position = position_;
+        return true;
     }
 
 private:
@@ -709,7 +755,8 @@ private:
         return false;
     }
 
-    bool ParseArray(std::vector<SourceSpan>* elements = nullptr) {
+    bool ParseArray(std::vector<SourceSpan>* elements = nullptr,
+                    std::size_t* elementCount = nullptr) {
         if (!Consume('[')) {
             return false;
         }
@@ -724,6 +771,9 @@ private:
             }
             if (elements != nullptr) {
                 elements->push_back(value);
+            }
+            if (elementCount != nullptr) {
+                ++*elementCount;
             }
             SkipWhitespace();
             if (Consume(']')) {
@@ -751,7 +801,7 @@ struct ParsedDocument {
     std::vector<Feature> features;
     std::vector<Diagnostic> diagnostics;
     std::shared_ptr<Json> root;
-    std::vector<SourceSpan> featureSpans;
+    SourceSpan featureArraySpan;
 };
 
 Result<ParsedDocument> ParseDocument(std::string_view source,
@@ -943,22 +993,29 @@ Result<ParsedDocument> ParseLazyDocument(std::string_view source,
     }
 
     Bounds computedBounds;
-    for (std::size_t index = 0; index < scanned.featureSpans.size(); ++index) {
-        try {
-            std::vector<Diagnostic> diagnostics;
-            Feature feature = ParseFeature(
-                ParseSpan(source, scanned.featureSpans[index]), index, options,
-                diagnostics);
-            IncludeBounds(computedBounds, ComputeBounds(feature.geometry));
-            document.diagnostics.insert(document.diagnostics.end(),
-                                        diagnostics.begin(), diagnostics.end());
-        } catch (const std::exception& error) {
-            return Result<ParsedDocument>::Failure({Issue(
-                DiagnosticCode::MalformedJson, Severity::Error,
-                std::string("malformed JSON: ") + error.what())});
-        }
+    JsonSpanScanner featureScanner(source);
+    std::size_t featureIndex = 0;
+    if (!featureScanner.ScanArrayElements(
+            scanned.featuresSpan, [&](const SourceSpan& featureSpan) {
+                try {
+                    std::vector<Diagnostic> diagnostics;
+                    Feature feature = ParseFeature(
+                        ParseSpan(source, featureSpan), featureIndex, options,
+                        diagnostics);
+                    IncludeBounds(computedBounds, ComputeBounds(feature.geometry));
+                    document.diagnostics.insert(document.diagnostics.end(),
+                                                diagnostics.begin(), diagnostics.end());
+                    ++featureIndex;
+                    return true;
+                } catch (const std::exception&) {
+                    return false;
+                }
+            })) {
+        return Result<ParsedDocument>::Failure({Issue(
+            DiagnosticCode::MalformedJson, Severity::Error,
+            "malformed JSON")});
     }
-    document.metadata.featureCount = scanned.featureSpans.size();
+    document.metadata.featureCount = scanned.featureCount;
     document.metadata.computedBounds = computedBounds;
     if (document.metadata.declaredBounds.has_value() &&
         !BoundsEqual(*document.metadata.declaredBounds, computedBounds)) {
@@ -970,7 +1027,7 @@ Result<ParsedDocument> ParseLazyDocument(std::string_view source,
     if (HasErrors(document.diagnostics)) {
         return Result<ParsedDocument>::Failure(document.diagnostics);
     }
-    document.featureSpans = std::move(scanned.featureSpans);
+    document.featureArraySpan = scanned.featuresSpan;
     Result<ParsedDocument> result;
     result.value = std::move(document);
     result.diagnostics = result.value->diagnostics;
@@ -993,14 +1050,16 @@ Result<DatasetMetadata> ParseMetadata(std::string_view source,
 
 Reader::Reader(DatasetMetadata metadata, std::vector<Feature> features,
            std::vector<Diagnostic> diagnostics,
-                     std::shared_ptr<const std::string> source,
-                     std::vector<std::pair<std::size_t, std::size_t>> featureSpans,
-                     ParseOptions options)
+           std::shared_ptr<const std::string> source,
+           std::pair<std::size_t, std::size_t> featureArraySpan,
+           std::size_t featureCount, ParseOptions options)
     : metadata_(std::move(metadata)),
       features_(std::move(features)),
     diagnostics_(std::move(diagnostics)),
-        source_(std::move(source)),
-        featureSpans_(std::move(featureSpans)),
+    source_(std::move(source)),
+    featureArraySpan_(featureArraySpan),
+    featureCount_(featureCount),
+    nextFeaturePosition_(featureArraySpan.first + 1),
     options_(options) {}
 
 Result<Reader> Reader::Create(std::string source, const ParseOptions& options) {
@@ -1021,10 +1080,12 @@ Result<Reader> Reader::CreateLazy(std::string source,
     if (!parsed.Succeeded()) {
         return Result<Reader>::Failure(std::move(parsed.diagnostics));
     }
+    const std::size_t featureCount =
+        parsed.value->metadata.featureCount.value_or(0);
     return Result<Reader>::Success(Reader(
         std::move(parsed.value->metadata), {}, std::move(parsed.diagnostics),
-        std::move(sourceStorage), std::move(parsed.value->featureSpans),
-        options));
+        std::move(sourceStorage), parsed.value->featureArraySpan,
+        featureCount, options));
 }
 
 Result<DatasetMetadata> Reader::ReadMetadata() {
@@ -1036,11 +1097,18 @@ Result<DatasetMetadata> Reader::ReadMetadata() {
 
 Result<std::optional<Feature>> Reader::ReadNext() {
     if (source_) {
-        if (nextFeature_ == featureSpans_.size()) {
+        if (nextFeature_ == featureCount_) {
             return Result<std::optional<Feature>>::Success(std::nullopt);
         }
         std::vector<Diagnostic> diagnostics;
-        const auto& span = featureSpans_[nextFeature_];
+        JsonSpanScanner scanner(*source_);
+        SourceSpan span;
+        if (!scanner.ScanNextArrayElement(featureArraySpan_,
+                                          nextFeaturePosition_, span)) {
+            return Result<std::optional<Feature>>::Failure({Issue(
+                DiagnosticCode::MalformedJson, Severity::Error,
+                "malformed feature array", nextFeature_)});
+        }
         Feature feature = ParseFeature(
             ParseSpan(*source_, span), nextFeature_, options_, diagnostics);
         if (HasErrors(diagnostics)) {

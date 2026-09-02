@@ -36,11 +36,11 @@ The default run includes 1,000 and 100,000 points, 1,000 16-vertex lines,
 one 1,000-vertex polygon, 1,000 small polygons, 1,000 property-heavy points,
 and 1,000 points with large coordinates. A single case and count can be run
 with `--case NAME --count N`. The default reader is `buffered`; the
-M5-compatible source-span lazy materialization candidate can be measured with
+M5-compatible cursor-based lazy materialization candidate can be measured with
 `--reader lazy`. Both modes use the same project-owned reader contract and
 produce the same semantic feature sequence. The lazy candidate retains the
-source text and lightweight feature ranges, rather than a whole JSON DOM or
-all project-owned Features.
+source text and a cursor into the feature array, rather than a whole JSON DOM,
+all feature ranges, or all project-owned Features.
 
 To preserve the existing eager failure and metadata contract, `CreateLazy` also
 validates each source feature while opening and discards that temporary model.
@@ -59,7 +59,7 @@ and a dedicated reader-only process measurement when evaluating this candidate.
 
 | Column | Meaning |
 | --- | --- |
-| `reader` | Reader backend: `buffered` retains project-owned Features after open; `lazy` retains source text and feature ranges and materializes one Feature per `ReadNext`. |
+| `reader` | Reader backend: `buffered` retains project-owned Features after open; `lazy` retains source text and a feature-array cursor and materializes one Feature per `ReadNext`. |
 | `case` | Benchmark case name: `points`, `lines`, `large-polygon`, `small-polygons`, `property-heavy`, or `large-coordinates`. |
 | `requested_count` | Requested case size; its interpretation depends on the case (for example, feature count or polygon vertex count). |
 | `source_bytes` | Generated GeoJSON source size. |
@@ -99,20 +99,22 @@ follow-up work, not a universal hardware limit.
 The first-feature time is effectively the open time for every case. That is
 expected for both current readers because `Create` and `CreateLazy` validate the
 complete source before returning. The buffered reader stores project-owned
-Features, while the lazy candidate stores source text and feature ranges and
-discards each temporary Feature after validation. Its results are evidence for
-reduced retained model state only; an incremental parser must be measured
+Features, while the lazy candidate stores source text and a feature-array cursor
+and discards each temporary Feature after validation. Its results are evidence
+for reduced retained model state only; an incremental parser must be measured
 separately before claiming bounded memory or earlier first-feature delivery.
 
-## Source-span candidate observation
+## Source-cursor candidate observation
 
 On 2026-09-03, the same OpenUSD-free Release benchmark was rerun for the
-100,000-point case after `CreateLazy` changed to retain source text and feature
-ranges instead of a JSON DOM. The lazy run completed with 200,802,304 bytes of
-process peak working set and 1,451.1 ms open time, compared with 231,927,808
-bytes and 1,607.4 ms for buffered. These are complete reader-plus-authoring
-process measurements, not isolated post-open reader allocations. The candidate
-still validates the complete source before returning from `CreateLazy`, so the
+100,000-point case after `CreateLazy` changed to retain source text and a
+feature-array cursor instead of a JSON DOM or all feature ranges. The lazy run
+completed with 187,400,192 bytes of process peak working set and 1,487.3 ms
+open time, compared with 219,918,336 bytes and 1,556.3 ms for buffered. Both
+runs retained 21,600,000 estimated feature bytes, and both reported
+`copied_bytes=0`. These are complete reader-plus-authoring process
+measurements, not isolated post-open reader allocations. The candidate still
+validates the complete source before returning from `CreateLazy`, so the
 measurement does not establish earlier first-feature delivery or a universal
 memory limit.
 
