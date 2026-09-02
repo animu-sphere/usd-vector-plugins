@@ -543,7 +543,7 @@ Result<ParsedDocument> ParseDocument(std::string_view source,
 
 Result<DatasetMetadata> ParseMetadata(std::string_view source,
                                       const ParseOptions& options) {
-    Result<ParsedDocument> parsed = ParseDocument(source, options);
+    Result<ParsedDocument> parsed = ParseDocument(source, options, false);
     if (!parsed.Succeeded()) {
         return Result<DatasetMetadata>::Failure(std::move(parsed.diagnostics));
     }
