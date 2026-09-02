@@ -2,11 +2,11 @@
 
 This documentation is organized by responsibility so current contracts,
 procedures, and future work do not drift into one another. The repository is
-at Milestone 4: `usdVectorCore`, the buffered `usdGeoJson` reader,
-`usdVectorAuthoring`, and the `vector-geojson` FileFormat plugin are
-implemented. The plugin vertical slice has been verified through OpenStrata
-L0-L5; M5 baseline scalability measurement is available, and bounded-memory
-improvements remain next.
+at Milestone 4 plus active M5 scalability work: `usdVectorCore`, the buffered
+and cursor-based lazy `usdGeoJson` readers, `usdVectorAuthoring`, and the
+`vector-geojson` FileFormat plugin are implemented. The plugin vertical slice
+has been verified through OpenStrata L0-L5; M5 baseline measurement and
+incremental lazy materialization evidence are available.
 
 | Category | Answers | Start here |
 | --- | --- | --- |

@@ -371,21 +371,16 @@ Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy, bool readerOnly) 
         std::chrono::duration<double, std::milli>(opened - openStart).count();
     metrics.timeToOpenMilliseconds = metrics.parseMilliseconds;
 
-    auto metadata = reader.value->ReadMetadata();
     auto first = reader.value->ReadNext();
     const auto firstFeature = Clock::now();
-    if (!metadata.Succeeded() || !first.Succeeded() || !first.value.has_value() ||
+    if (!first.Succeeded() || !first.value.has_value() ||
         !first.value->has_value()) {
         throw std::runtime_error("benchmark reader did not return its first feature");
     }
     metrics.firstFeatureMilliseconds =
         std::chrono::duration<double, std::milli>(firstFeature - openStart).count();
 
-    const std::size_t expectedFeatures = metadata.value->featureCount.value_or(0);
     std::vector<usdvector::Feature> features;
-    if (!readerOnly) {
-        features.reserve(expectedFeatures);
-    }
     const auto recordFeature = [&features, &metrics, readerOnly](
                                   usdvector::Feature feature) {
         ++metrics.featureCount;
@@ -405,6 +400,12 @@ Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy, bool readerOnly) 
             break;
         }
         recordFeature(std::move(next.value->value()));
+    }
+
+    auto metadata = reader.value->ReadMetadata();
+    if (!metadata.Succeeded()) {
+        throw std::runtime_error("benchmark reader metadata could not be read: " +
+                                 DiagnosticSummary(metadata.diagnostics));
     }
 
     if (!readerOnly) {

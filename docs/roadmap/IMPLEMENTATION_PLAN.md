@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Last updated: 2026-09-02
+Last updated: 2026-09-03
 
 This is the canonical ordered plan after completion of the GeoJSON vertical
 slice. The existing GeoJSON implementation is the compatibility baseline, not
@@ -73,6 +73,12 @@ Select only improvements justified by the baseline: incremental JSON parsing,
 lazy property decoding, geometry callbacks, allocation changes, reduced
 copying, direct plan generation, or bounded feature batches. Parser-owned JSON
 types must not leak into the core reader contract.
+
+The current GeoJSON lazy reader applies incremental JSON structure scanning:
+`CreateLazy` defers feature validation and materialization to `ReadNext`, while
+`ReadMetadata` can perform a non-consuming complete scan when full metadata is
+requested before iteration. The measured behavior is recorded in
+[SCALABILITY_BASELINE.md](../reports/SCALABILITY_BASELINE.md).
 
 ### Step 7: explicit converter
 
