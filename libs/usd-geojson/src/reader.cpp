@@ -1118,6 +1118,9 @@ bool Reader::CompleteLazyMetadata() {
 
 Result<std::optional<Feature>> Reader::ReadNext() {
     if (source_) {
+        if (lazyMetadataFailed_) {
+            return Result<std::optional<Feature>>::Failure(diagnostics_);
+        }
         if (nextFeature_ == featureCount_) {
             if (!lazyMetadataComplete_) {
                 metadata_.computedBounds = lazyComputedBounds_;

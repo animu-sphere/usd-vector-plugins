@@ -80,20 +80,6 @@ void TestLazyReaderMatchesBufferedReader() {
     auto lazy = usdvector::geojson::Reader::CreateLazy(Sample());
     assert(buffered.Succeeded() && lazy.Succeeded());
 
-        auto bufferedMetadata = buffered.value->ReadMetadata();
-        auto lazyMetadata = lazy.value->ReadMetadata();
-        assert(bufferedMetadata.Succeeded() && lazyMetadata.Succeeded());
-        assert(lazyMetadata.value->format == bufferedMetadata.value->format);
-        assert(lazyMetadata.value->featureCount ==
-            bufferedMetadata.value->featureCount);
-        assert(lazyMetadata.value->computedBounds.has_value());
-        assert(bufferedMetadata.value->computedBounds.has_value());
-        assert(lazyMetadata.value->computedBounds->minX ==
-            bufferedMetadata.value->computedBounds->minX);
-        assert(lazyMetadata.value->computedBounds->maxY ==
-            bufferedMetadata.value->computedBounds->maxY);
-        assert(lazyMetadata.diagnostics.size() == bufferedMetadata.diagnostics.size());
-
     for (int index = 0; index < 7; ++index) {
         auto bufferedFeature = buffered.value->ReadNext();
         auto lazyFeature = lazy.value->ReadNext();
@@ -114,6 +100,20 @@ void TestLazyReaderMatchesBufferedReader() {
                bufferedFeature.value->value().properties.size());
     }
     assert(!lazy.value->ReadNext().value->has_value());
+
+    auto bufferedMetadata = buffered.value->ReadMetadata();
+    auto lazyMetadata = lazy.value->ReadMetadata();
+    assert(bufferedMetadata.Succeeded() && lazyMetadata.Succeeded());
+    assert(lazyMetadata.value->format == bufferedMetadata.value->format);
+    assert(lazyMetadata.value->featureCount ==
+           bufferedMetadata.value->featureCount);
+    assert(lazyMetadata.value->computedBounds.has_value());
+    assert(bufferedMetadata.value->computedBounds.has_value());
+    assert(lazyMetadata.value->computedBounds->minX ==
+           bufferedMetadata.value->computedBounds->minX);
+    assert(lazyMetadata.value->computedBounds->maxY ==
+           bufferedMetadata.value->computedBounds->maxY);
+    assert(lazyMetadata.diagnostics.size() == bufferedMetadata.diagnostics.size());
 }
 
 void TestLazyReaderEmptyFeatureCollection() {
@@ -138,6 +138,26 @@ void TestLazyMetadataDoesNotConsumeFeatures() {
     assert(first.Succeeded() && first.value->has_value());
     assert(std::get<usdvector::Point>(first.value->value().geometry)
                .coordinate.x == 1.0);
+}
+
+void TestLazyStrictBoundsFailurePersists() {
+    auto lazy = usdvector::geojson::Reader::CreateLazy(
+        R"({"type":"FeatureCollection","bbox":[0,0,1,1],"features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[10,10]},"properties":{}}]})",
+        usdvector::geojson::ParseOptions{true});
+    assert(lazy.Succeeded());
+    auto feature = lazy.value->ReadNext();
+    assert(feature.Succeeded() && feature.value->has_value());
+
+    auto firstEnd = lazy.value->ReadNext();
+    assert(!firstEnd.Succeeded());
+    assert(!firstEnd.diagnostics.empty());
+    assert(firstEnd.diagnostics[0].code == usdvector::DiagnosticCode::BoundsMismatch);
+
+    auto repeatedEnd = lazy.value->ReadNext();
+    assert(!repeatedEnd.Succeeded());
+    assert(!repeatedEnd.diagnostics.empty());
+    assert(repeatedEnd.diagnostics[0].code ==
+           usdvector::DiagnosticCode::BoundsMismatch);
 }
 
 void TestLazyReaderRootDiagnostics() {
@@ -213,6 +233,7 @@ int main() {
         TestLazyReaderMatchesBufferedReader();
         TestLazyReaderEmptyFeatureCollection();
         TestLazyMetadataDoesNotConsumeFeatures();
+        TestLazyStrictBoundsFailurePersists();
         TestLazyReaderRootDiagnostics();
         TestStableDiagnostics();
     } catch (const std::exception& error) {
