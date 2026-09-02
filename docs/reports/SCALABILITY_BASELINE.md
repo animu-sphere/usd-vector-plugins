@@ -29,6 +29,12 @@ produce the same semantic feature sequence. The lazy candidate still parses a
 whole JSON DOM at open time, so it is not a streaming parser or a bounded-memory
 claim.
 
+To preserve the existing eager failure and metadata contract, `CreateLazy` also
+validates each source feature while opening and discards that temporary model.
+The output Feature is then materialized again when `ReadNext` is called. This
+candidate reduces retained project-owned feature state after open, but it does
+not yet reduce open-time feature parsing work.
+
 The benchmark materializes every feature again for the shared authoring-plan
 measurement. Consequently, `peak_rss_bytes` and `retained_feature_bytes` in a
 lazy run describe the complete reader-plus-authoring workflow, not the reader's

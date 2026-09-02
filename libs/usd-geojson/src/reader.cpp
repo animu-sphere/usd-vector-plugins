@@ -554,13 +554,13 @@ Result<DatasetMetadata> ParseMetadata(std::string_view source,
 }
 
 Reader::Reader(DatasetMetadata metadata, std::vector<Feature> features,
-                             std::vector<Diagnostic> diagnostics,
-                             std::shared_ptr<const void> document, ParseOptions options)
+           std::vector<Diagnostic> diagnostics,
+           std::shared_ptr<const void> document, ParseOptions options)
     : metadata_(std::move(metadata)),
       features_(std::move(features)),
-            diagnostics_(std::move(diagnostics)),
-            document_(std::move(document)),
-            options_(options) {}
+    diagnostics_(std::move(diagnostics)),
+    document_(std::move(document)),
+    options_(options) {}
 
 Result<Reader> Reader::Create(std::string source, const ParseOptions& options) {
     Result<ParsedDocument> parsed = ParseDocument(source, options);
