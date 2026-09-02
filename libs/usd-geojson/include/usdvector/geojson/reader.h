@@ -44,6 +44,12 @@ private:
     std::size_t nextFeaturePosition_ = 0;
     ParseOptions options_;
     std::size_t nextFeature_ = 0;
+    Bounds lazyComputedBounds_;
+    std::vector<Diagnostic> lazyFeatureDiagnostics_;
+    bool lazyMetadataComplete_ = false;
+    bool lazyMetadataFailed_ = false;
+
+    bool CompleteLazyMetadata();
 };
 
 }  // namespace usdvector::geojson

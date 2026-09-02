@@ -20,8 +20,10 @@ public:
 interface permits a streaming implementation and does not expose parser-owned
 JSON values. The GeoJSON reader also exposes `Reader::CreateLazy`; it keeps the
 source text and a cursor into the feature array, then materializes one
-project-owned Feature per `ReadNext`, while preserving the same metadata,
-diagnostics, and feature order as the buffered factory.
+project-owned Feature per `ReadNext`. Feature validation is deferred until the
+feature is read. If complete metadata is requested before iteration,
+`ReadMetadata` performs a non-consuming scan and returns the same metadata and
+diagnostics as the buffered factory.
 
 ## 2. Geometry
 

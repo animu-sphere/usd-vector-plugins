@@ -992,41 +992,7 @@ Result<ParsedDocument> ParseLazyDocument(std::string_view source,
         }
     }
 
-    Bounds computedBounds;
-    JsonSpanScanner featureScanner(source);
-    std::size_t featureIndex = 0;
-    if (!featureScanner.ScanArrayElements(
-            scanned.featuresSpan, [&](const SourceSpan& featureSpan) {
-                try {
-                    std::vector<Diagnostic> diagnostics;
-                    Feature feature = ParseFeature(
-                        ParseSpan(source, featureSpan), featureIndex, options,
-                        diagnostics);
-                    IncludeBounds(computedBounds, ComputeBounds(feature.geometry));
-                    document.diagnostics.insert(document.diagnostics.end(),
-                                                diagnostics.begin(), diagnostics.end());
-                    ++featureIndex;
-                    return true;
-                } catch (const std::exception&) {
-                    return false;
-                }
-            })) {
-        return Result<ParsedDocument>::Failure({Issue(
-            DiagnosticCode::MalformedJson, Severity::Error,
-            "malformed JSON")});
-    }
     document.metadata.featureCount = scanned.featureCount;
-    document.metadata.computedBounds = computedBounds;
-    if (document.metadata.declaredBounds.has_value() &&
-        !BoundsEqual(*document.metadata.declaredBounds, computedBounds)) {
-        document.diagnostics.push_back(Issue(
-            DiagnosticCode::BoundsMismatch,
-            options.strict ? Severity::Error : Severity::Warning,
-            "declared bounds disagree with computed bounds"));
-    }
-    if (HasErrors(document.diagnostics)) {
-        return Result<ParsedDocument>::Failure(document.diagnostics);
-    }
     document.featureArraySpan = scanned.featuresSpan;
     Result<ParsedDocument> result;
     result.value = std::move(document);
@@ -1089,15 +1055,92 @@ Result<Reader> Reader::CreateLazy(std::string source,
 }
 
 Result<DatasetMetadata> Reader::ReadMetadata() {
+    if (source_ && !CompleteLazyMetadata()) {
+        return Result<DatasetMetadata>::Failure(diagnostics_);
+    }
     Result<DatasetMetadata> result;
     result.value = metadata_;
     result.diagnostics = diagnostics_;
     return result;
 }
 
+bool Reader::CompleteLazyMetadata() {
+    if (!source_ || lazyMetadataComplete_) {
+        return !lazyMetadataFailed_;
+    }
+    if (lazyMetadataFailed_) {
+        return false;
+    }
+
+    Bounds computedBounds;
+    std::vector<Diagnostic> featureDiagnostics;
+    JsonSpanScanner scanner(*source_);
+    std::size_t featureIndex = 0;
+    const bool scanned = scanner.ScanArrayElements(
+        featureArraySpan_, [&](const SourceSpan& featureSpan) {
+            try {
+                std::vector<Diagnostic> diagnostics;
+                Feature feature = ParseFeature(
+                    ParseSpan(*source_, featureSpan), featureIndex, options_,
+                    diagnostics);
+                IncludeBounds(computedBounds, ComputeBounds(feature.geometry));
+                featureDiagnostics.insert(featureDiagnostics.end(),
+                                          diagnostics.begin(), diagnostics.end());
+                ++featureIndex;
+                return true;
+            } catch (const std::exception&) {
+                return false;
+            }
+        });
+    if (!scanned) {
+        featureDiagnostics.push_back(Issue(
+            DiagnosticCode::MalformedJson, Severity::Error,
+            "malformed JSON"));
+    }
+
+    metadata_.computedBounds = computedBounds;
+    if (metadata_.declaredBounds.has_value() &&
+        !BoundsEqual(*metadata_.declaredBounds, computedBounds)) {
+        featureDiagnostics.push_back(Issue(
+            DiagnosticCode::BoundsMismatch,
+            options_.strict ? Severity::Error : Severity::Warning,
+            "declared bounds disagree with computed bounds"));
+    }
+    diagnostics_.insert(diagnostics_.end(), featureDiagnostics.begin(),
+                       featureDiagnostics.end());
+    if (!scanned || HasErrors(featureDiagnostics)) {
+        lazyMetadataFailed_ = true;
+        return false;
+    }
+    lazyMetadataComplete_ = true;
+    return true;
+}
+
 Result<std::optional<Feature>> Reader::ReadNext() {
     if (source_) {
+        if (lazyMetadataFailed_) {
+            return Result<std::optional<Feature>>::Failure(diagnostics_);
+        }
         if (nextFeature_ == featureCount_) {
+            if (!lazyMetadataComplete_) {
+                metadata_.computedBounds = lazyComputedBounds_;
+                diagnostics_.insert(diagnostics_.end(),
+                                   lazyFeatureDiagnostics_.begin(),
+                                   lazyFeatureDiagnostics_.end());
+                if (metadata_.declaredBounds.has_value() &&
+                    !BoundsEqual(*metadata_.declaredBounds,
+                                 *metadata_.computedBounds)) {
+                    diagnostics_.push_back(Issue(
+                        DiagnosticCode::BoundsMismatch,
+                        options_.strict ? Severity::Error : Severity::Warning,
+                        "declared bounds disagree with computed bounds"));
+                }
+                lazyMetadataComplete_ = true;
+                if (HasErrors(diagnostics_)) {
+                    lazyMetadataFailed_ = true;
+                    return Result<std::optional<Feature>>::Failure(diagnostics_);
+                }
+            }
             return Result<std::optional<Feature>>::Success(std::nullopt);
         }
         std::vector<Diagnostic> diagnostics;
@@ -1115,6 +1158,9 @@ Result<std::optional<Feature>> Reader::ReadNext() {
             return Result<std::optional<Feature>>::Failure(
                 std::move(diagnostics));
         }
+        IncludeBounds(lazyComputedBounds_, ComputeBounds(feature.geometry));
+        lazyFeatureDiagnostics_.insert(lazyFeatureDiagnostics_.end(),
+                                       diagnostics.begin(), diagnostics.end());
         ++nextFeature_;
         return Result<std::optional<Feature>>::Success(
             std::optional<Feature>{std::move(feature)});

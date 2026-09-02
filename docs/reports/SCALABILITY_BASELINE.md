@@ -1,11 +1,11 @@
 # GeoJSON scalability baseline
 
-Date: 2026-09-02
+Date: 2026-09-03
 
-The baseline runner is `tools/usd-vector-benchmark`. It measures the current
-buffered `usdGeoJson` reader before any streaming replacement is attempted.
-The runner is OpenUSD-independent; an OpenUSD-enabled build also reports stage
-emission time and flattened layer size.
+The baseline runner is `tools/usd-vector-benchmark`. It measures the buffered
+`usdGeoJson` reader alongside the cursor-based lazy reader. The runner is
+OpenUSD-independent; an OpenUSD-enabled build also reports stage emission time
+and flattened layer size.
 
 ## Reproduce
 
@@ -42,12 +42,11 @@ produce the same semantic feature sequence. The lazy candidate retains the
 source text and a cursor into the feature array, rather than a whole JSON DOM,
 all feature ranges, or all project-owned Features.
 
-To preserve the existing eager failure and metadata contract, `CreateLazy` also
-validates each source feature while opening and discards that temporary model.
-The output Feature is then materialized again when `ReadNext` is called. This
-candidate reduces retained project-owned feature state after open, but it does
-not yet reduce open-time feature parsing work or deliver the first feature before
-the complete source has been validated.
+`CreateLazy` validates root structure and root metadata while opening, then
+defers feature validation and materialization to `ReadNext`. A caller that asks
+for complete metadata before iteration causes `ReadMetadata` to scan all
+features without consuming the cursor, preserving the metadata contract. A
+streaming caller can obtain the first feature before later features are parsed.
 
 The benchmark materializes every feature again for the shared authoring-plan
 measurement. Consequently, `peak_rss_bytes` and `retained_feature_bytes` in a
@@ -64,7 +63,7 @@ and a dedicated reader-only process measurement when evaluating this candidate.
 | `requested_count` | Requested case size; its interpretation depends on the case (for example, feature count or polygon vertex count). |
 | `source_bytes` | Generated GeoJSON source size. |
 | `features`, `vertices` | Counts recovered by the reader. |
-| `parse_ms` | `Reader::Create`, including complete-source validation; `lazy` parses one temporary feature at a time while opening. |
+| `parse_ms` | `Reader::Create`; for `lazy`, root scanning only. Feature parsing is measured by iteration and metadata completion. |
 | `time_to_first_feature_ms` | Time from reader creation start through the first `ReadNext`. |
 | `time_to_open_ms` | Time until `Reader::Create` returns; equal to parse time for the current backend. |
 | `authoring_plan_ms` | Time for `BuildAuthoringPlan`. |
@@ -96,13 +95,12 @@ comparison threshold, 1,000 points remains below the threshold while 100,000
 points is the first measured case above it. This is an evidence boundary for
 follow-up work, not a universal hardware limit.
 
-The first-feature time is effectively the open time for every case. That is
-expected for both current readers because `Create` and `CreateLazy` validate the
-complete source before returning. The buffered reader stores project-owned
-Features, while the lazy candidate stores source text and a feature-array cursor
-and discards each temporary Feature after validation. Its results are evidence
-for reduced retained model state only; an incremental parser must be measured
-separately before claiming bounded memory or earlier first-feature delivery.
+The buffered reader validates and materializes the complete source during open.
+The lazy reader scans JSON structure during open and materializes one
+project-owned Feature per `ReadNext`. Its first-feature time therefore excludes
+later feature parsing. Complete metadata remains available through a
+non-consuming scan when requested before iteration, while normal streaming can
+defer that work until features are consumed.
 
 ## Source-cursor candidate observation
 
@@ -113,10 +111,9 @@ completed with 187,400,192 bytes of process peak working set and 1,487.3 ms
 open time, compared with 219,918,336 bytes and 1,556.3 ms for buffered. Both
 runs retained 21,600,000 estimated feature bytes, and both reported
 `copied_bytes=0`. These are complete reader-plus-authoring process
-measurements, not isolated post-open reader allocations. The candidate still
-validates the complete source before returning from `CreateLazy`, so the
-measurement does not establish earlier first-feature delivery or a universal
-memory limit.
+measurements, not isolated post-open reader allocations. This observation is
+the pre-incremental candidate measurement; the current lazy reader behavior is
+recorded below.
 
 ## Source handoff observation
 
@@ -133,6 +130,19 @@ On 2026-09-03, reader-only runs for 1,000 points reported zero
 lazy readers while retaining the same feature and vertex counts. The lazy
 run reported 14.1 ms parse time and 14.2 ms to first feature; the buffered run
 reported 15.8 ms for both measurements. These values are single-process
-observations, not a hardware-independent performance claim. The mode makes
-the reader comparison explicit; it does not change the current lazy reader's
-complete-source validation behavior.
+observations from before incremental feature validation, not hardware-
+independent performance claims. The mode makes the reader comparison
+explicit.
+
+## Incremental lazy reader observation
+
+On 2026-09-03, the OpenUSD-free Release reader-only benchmark was rerun for
+100,000 points after feature validation moved out of `CreateLazy`. The
+buffered run reported 394.6 ms parse time, 394.6 ms to open, and a peak working
+set of 219,066,368 bytes. The lazy run reported 7.6 ms parse time, 7.6 ms to
+open, and a peak working set of 24,125,440 bytes. First-feature times were
+394.6 ms for buffered and 7.6 ms for lazy. Both runs recovered 100,000
+features and vertices, reported `copied_bytes=0`, and retained zero estimated
+feature bytes in reader-only mode. These are single-process observations on
+the measurement machine, not hardware-independent performance claims or a
+universal memory limit.
