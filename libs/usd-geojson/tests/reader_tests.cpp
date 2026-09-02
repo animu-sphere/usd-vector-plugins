@@ -181,13 +181,25 @@ void TestLazyReaderRootDiagnostics() {
            usdvector::DiagnosticCode::InvalidFeatureCollection);
 
     auto invalidFeature = usdvector::geojson::Reader::CreateLazy(
-        R"({"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"GeometryCollection","geometries":[]},"properties":{}}]})");
+        R"({"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"GeometryCollection","geometries":[]},"properties":{}},{"type":"Feature","geometry":{"type":"Point","coordinates":[0,0]},"properties":[]}]})");
     assert(invalidFeature.Succeeded());
     auto invalidFeatureResult = invalidFeature.value->ReadNext();
     assert(!invalidFeatureResult.Succeeded());
     assert(!invalidFeatureResult.diagnostics.empty());
     assert(invalidFeatureResult.diagnostics[0].code ==
            usdvector::DiagnosticCode::UnsupportedGeometryType);
+    auto repeatedFeatureResult = invalidFeature.value->ReadNext();
+    assert(!repeatedFeatureResult.Succeeded());
+    assert(repeatedFeatureResult.diagnostics.size() ==
+           invalidFeatureResult.diagnostics.size());
+    assert(repeatedFeatureResult.diagnostics[0].code ==
+           invalidFeatureResult.diagnostics[0].code);
+    auto metadataAfterFailure = invalidFeature.value->ReadMetadata();
+    assert(!metadataAfterFailure.Succeeded());
+    assert(metadataAfterFailure.diagnostics.size() ==
+           invalidFeatureResult.diagnostics.size());
+    assert(metadataAfterFailure.diagnostics[0].code ==
+           invalidFeatureResult.diagnostics[0].code);
 }
 
 void TestStableDiagnostics() {

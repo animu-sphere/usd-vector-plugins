@@ -1055,6 +1055,9 @@ Result<Reader> Reader::CreateLazy(std::string source,
 }
 
 Result<DatasetMetadata> Reader::ReadMetadata() {
+    if (source_ && lazyReadFailed_) {
+        return Result<DatasetMetadata>::Failure(lazyReadFailureDiagnostics_);
+    }
     if (source_ && !CompleteLazyMetadata()) {
         return Result<DatasetMetadata>::Failure(diagnostics_);
     }
@@ -1118,6 +1121,10 @@ bool Reader::CompleteLazyMetadata() {
 
 Result<std::optional<Feature>> Reader::ReadNext() {
     if (source_) {
+        if (lazyReadFailed_) {
+            return Result<std::optional<Feature>>::Failure(
+                lazyReadFailureDiagnostics_);
+        }
         if (lazyMetadataFailed_) {
             return Result<std::optional<Feature>>::Failure(diagnostics_);
         }
@@ -1148,15 +1155,20 @@ Result<std::optional<Feature>> Reader::ReadNext() {
         SourceSpan span;
         if (!scanner.ScanNextArrayElement(featureArraySpan_,
                                           nextFeaturePosition_, span)) {
-            return Result<std::optional<Feature>>::Failure({Issue(
+            lazyReadFailureDiagnostics_ = {Issue(
                 DiagnosticCode::MalformedJson, Severity::Error,
-                "malformed feature array", nextFeature_)});
+                "malformed feature array", nextFeature_)};
+            lazyReadFailed_ = true;
+            return Result<std::optional<Feature>>::Failure(
+                lazyReadFailureDiagnostics_);
         }
         Feature feature = ParseFeature(
             ParseSpan(*source_, span), nextFeature_, options_, diagnostics);
         if (HasErrors(diagnostics)) {
+            lazyReadFailureDiagnostics_ = std::move(diagnostics);
+            lazyReadFailed_ = true;
             return Result<std::optional<Feature>>::Failure(
-                std::move(diagnostics));
+                lazyReadFailureDiagnostics_);
         }
         IncludeBounds(lazyComputedBounds_, ComputeBounds(feature.geometry));
         lazyFeatureDiagnostics_.insert(lazyFeatureDiagnostics_.end(),

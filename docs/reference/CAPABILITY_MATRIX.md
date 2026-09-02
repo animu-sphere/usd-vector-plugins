@@ -82,9 +82,12 @@ default table is [FILE_FORMAT_ARGUMENTS.md](../architecture/FILE_FORMAT_ARGUMENT
 
 - The default GeoJSON factory remains buffered. A tested lazy materialization
   candidate retains source text and a feature-array cursor instead of a complete
-  JSON DOM, all feature ranges, or all project-owned Features. It still
-  validates every feature at open, so it is not an incremental first-feature or
-  fully bounded-memory parser.
+  JSON DOM, all feature ranges, or all project-owned Features. Root structure and
+  root metadata are validated at open; feature validation and materialization are
+  deferred to `ReadNext`. A complete metadata request performs a non-consuming
+  feature scan, while normal iteration can return the first feature before later
+  features are parsed. The default factory remains buffered, and lazy mode still
+  retains the complete source text, so this is not a fully bounded-memory parser.
 - GeoJSON has no spatial index; bounding-box filtering would still require a
   full scan and is therefore deferred.
 - No implicit reprojection or axis conversion occurs.
