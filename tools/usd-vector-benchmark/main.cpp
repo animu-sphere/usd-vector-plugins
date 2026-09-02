@@ -354,13 +354,14 @@ Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy) {
     metrics.reader = lazy ? "lazy" : "buffered";
     metrics.name = benchmarkCase.name;
     metrics.requestedCount = benchmarkCase.count;
-    const std::string source = BuildSource(benchmarkCase);
+    std::string source = BuildSource(benchmarkCase);
     metrics.sourceBytes = source.size();
-    metrics.copiedBytes = source.size();
+    metrics.copiedBytes = 0;
 
     const auto openStart = Clock::now();
-    auto reader = lazy ? usdvector::geojson::Reader::CreateLazy(source)
-                       : usdvector::geojson::Reader::Create(source);
+    auto reader = lazy
+                      ? usdvector::geojson::Reader::CreateLazy(std::move(source))
+                      : usdvector::geojson::Reader::Create(std::move(source));
     const auto opened = Clock::now();
     if (!reader.Succeeded()) {
         throw std::runtime_error("benchmark source could not be parsed: " +

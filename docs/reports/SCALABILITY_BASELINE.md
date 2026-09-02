@@ -56,7 +56,7 @@ and a dedicated reader-only process measurement when evaluating this candidate.
 | `time_to_open_ms` | Time until `Reader::Create` returns; equal to parse time for the current backend. |
 | `authoring_plan_ms` | Time for `BuildAuthoringPlan`. |
 | `peak_rss_bytes` | Process peak working set on Windows. Run one case per process for an isolated value. |
-| `copied_bytes` | Known source handoff copy: the benchmark passes the source as an lvalue to the by-value reader API. |
+| `copied_bytes` | Known source handoff copies. The benchmark moves its generated source into the by-value reader API and reports zero for this handoff; any nonzero value identifies an explicit copy in the measured path. |
 | `retained_feature_bytes` | Estimated retained feature, geometry, and property capacity, not an allocator trace. |
 | `usd_emission_ms` | OpenUSD-enabled builds only. |
 | `flattened_layer_bytes` | OpenUSD-enabled builds only; serialized root layer size. |
@@ -102,3 +102,11 @@ process measurements, not isolated post-open reader allocations. The candidate
 still validates the complete source before returning from `CreateLazy`, so the
 measurement does not establish earlier first-feature delivery or a universal
 memory limit.
+
+## Source handoff observation
+
+On 2026-09-03, the benchmark source handoff was changed from an lvalue to a
+move into both reader factories. A 1,000-point run reported `copied_bytes=0`
+for buffered and lazy readers while retaining the same 1,000 feature and 1,000
+vertex counts. This removes the benchmark's known full-source handoff copy;
+it does not claim that parser or authoring allocations are copy-free.
