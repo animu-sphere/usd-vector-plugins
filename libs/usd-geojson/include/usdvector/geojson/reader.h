@@ -48,6 +48,8 @@ private:
     std::vector<Diagnostic> lazyFeatureDiagnostics_;
     bool lazyMetadataComplete_ = false;
     bool lazyMetadataFailed_ = false;
+    std::vector<Diagnostic> lazyReadFailureDiagnostics_;
+    bool lazyReadFailed_ = false;
 
     bool CompleteLazyMetadata();
 };
