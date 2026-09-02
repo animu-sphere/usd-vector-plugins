@@ -453,11 +453,305 @@ void IncludeBounds(Bounds& target, const Bounds& source) {
     }
 }
 
+using SourceSpan = std::pair<std::size_t, std::size_t>;
+
+struct ScannedRoot {
+    std::vector<std::pair<std::string, SourceSpan>> members;
+    bool hasFeatures = false;
+    bool featuresIsArray = false;
+    SourceSpan featuresSpan;
+    std::vector<SourceSpan> featureSpans;
+};
+
+class JsonSpanScanner {
+public:
+    explicit JsonSpanScanner(std::string_view source) : source_(source) {}
+
+    bool ScanRoot(ScannedRoot& root) {
+        SkipWhitespace();
+        if (!Consume('{')) {
+            return false;
+        }
+        SkipWhitespace();
+        if (Consume('}')) {
+            SkipWhitespace();
+            return position_ == source_.size();
+        }
+        while (position_ < source_.size()) {
+            SourceSpan keySpan;
+            if (!ParseString(keySpan)) {
+                return false;
+            }
+            std::string key;
+            try {
+                key = Json::parse(source_.begin() + keySpan.first,
+                                  source_.begin() + keySpan.second)
+                          .get<std::string>();
+            } catch (const std::exception&) {
+                return false;
+            }
+            SkipWhitespace();
+            if (!Consume(':')) {
+                return false;
+            }
+            SkipWhitespace();
+            if (key == "features") {
+                root.hasFeatures = true;
+                root.featuresSpan.first = position_;
+                if (position_ < source_.size() && source_[position_] == '[') {
+                    std::vector<SourceSpan> featureSpans;
+                    if (!ParseArray(&featureSpans)) {
+                        return false;
+                    }
+                    root.featuresIsArray = true;
+                    root.featureSpans = std::move(featureSpans);
+                } else if (!ParseValue(root.featuresSpan)) {
+                    return false;
+                }
+                root.featuresSpan.second = position_;
+            } else {
+                SourceSpan valueSpan;
+                if (!ParseValue(valueSpan)) {
+                    return false;
+                }
+                root.members.emplace_back(std::move(key), valueSpan);
+            }
+            SkipWhitespace();
+            if (Consume('}')) {
+                SkipWhitespace();
+                return position_ == source_.size();
+            }
+            if (!Consume(',')) {
+                return false;
+            }
+            SkipWhitespace();
+        }
+        return false;
+    }
+
+private:
+    static bool IsDigit(char value) {
+        return value >= '0' && value <= '9';
+    }
+
+    static bool IsHexDigit(char value) {
+        return (value >= '0' && value <= '9') ||
+               (value >= 'a' && value <= 'f') ||
+               (value >= 'A' && value <= 'F');
+    }
+
+    void SkipWhitespace() {
+        while (position_ < source_.size()) {
+            const char value = source_[position_];
+            if (value != ' ' && value != '\t' && value != '\n' && value != '\r') {
+                break;
+            }
+            ++position_;
+        }
+    }
+
+    bool Consume(char expected) {
+        if (position_ >= source_.size() || source_[position_] != expected) {
+            return false;
+        }
+        ++position_;
+        return true;
+    }
+
+    bool ParseString(SourceSpan& span) {
+        const std::size_t begin = position_;
+        if (!Consume('"')) {
+            return false;
+        }
+        while (position_ < source_.size()) {
+            const unsigned char value =
+                static_cast<unsigned char>(source_[position_++]);
+            if (value == '"') {
+                span = {begin, position_};
+                return true;
+            }
+            if (value < 0x20) {
+                return false;
+            }
+            if (value != '\\') {
+                continue;
+            }
+            if (position_ >= source_.size()) {
+                return false;
+            }
+            const char escape = source_[position_++];
+            if (escape == 'u') {
+                for (int digit = 0; digit < 4; ++digit) {
+                    if (position_ >= source_.size() ||
+                        !IsHexDigit(source_[position_++])) {
+                        return false;
+                    }
+                }
+            } else if (escape != '"' && escape != '\\' && escape != '/' &&
+                       escape != 'b' && escape != 'f' && escape != 'n' &&
+                       escape != 'r' && escape != 't') {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    bool ParseNumber() {
+        if (position_ < source_.size() && source_[position_] == '-') {
+            ++position_;
+        }
+        if (position_ >= source_.size()) {
+            return false;
+        }
+        if (source_[position_] == '0') {
+            ++position_;
+        } else {
+            if (source_[position_] < '1' || source_[position_] > '9') {
+                return false;
+            }
+            while (position_ < source_.size() && IsDigit(source_[position_])) {
+                ++position_;
+            }
+        }
+        if (position_ < source_.size() && source_[position_] == '.') {
+            ++position_;
+            if (position_ >= source_.size() || !IsDigit(source_[position_])) {
+                return false;
+            }
+            while (position_ < source_.size() && IsDigit(source_[position_])) {
+                ++position_;
+            }
+        }
+        if (position_ < source_.size() &&
+            (source_[position_] == 'e' || source_[position_] == 'E')) {
+            ++position_;
+            if (position_ < source_.size() &&
+                (source_[position_] == '+' || source_[position_] == '-')) {
+                ++position_;
+            }
+            if (position_ >= source_.size() || !IsDigit(source_[position_])) {
+                return false;
+            }
+            while (position_ < source_.size() && IsDigit(source_[position_])) {
+                ++position_;
+            }
+        }
+        return true;
+    }
+
+    bool ParseLiteral(std::string_view literal) {
+        if (source_.substr(position_, literal.size()) != literal) {
+            return false;
+        }
+        position_ += literal.size();
+        return true;
+    }
+
+    bool ParseValue(SourceSpan& span) {
+        SkipWhitespace();
+        const std::size_t begin = position_;
+        if (position_ >= source_.size()) {
+            return false;
+        }
+        const char value = source_[position_];
+        bool valid = false;
+        if (value == '"') {
+            valid = ParseString(span);
+        } else if (value == '{') {
+            valid = ParseObject();
+        } else if (value == '[') {
+            valid = ParseArray();
+        } else if (value == 't') {
+            valid = ParseLiteral("true");
+        } else if (value == 'f') {
+            valid = ParseLiteral("false");
+        } else if (value == 'n') {
+            valid = ParseLiteral("null");
+        } else if (value == '-' || IsDigit(value)) {
+            valid = ParseNumber();
+        }
+        if (valid) {
+            span = {begin, position_};
+        }
+        return valid;
+    }
+
+    bool ParseObject() {
+        if (!Consume('{')) {
+            return false;
+        }
+        SkipWhitespace();
+        if (Consume('}')) {
+            return true;
+        }
+        while (position_ < source_.size()) {
+            SourceSpan key;
+            if (!ParseString(key)) {
+                return false;
+            }
+            SkipWhitespace();
+            if (!Consume(':')) {
+                return false;
+            }
+            SourceSpan value;
+            if (!ParseValue(value)) {
+                return false;
+            }
+            SkipWhitespace();
+            if (Consume('}')) {
+                return true;
+            }
+            if (!Consume(',')) {
+                return false;
+            }
+            SkipWhitespace();
+        }
+        return false;
+    }
+
+    bool ParseArray(std::vector<SourceSpan>* elements = nullptr) {
+        if (!Consume('[')) {
+            return false;
+        }
+        SkipWhitespace();
+        if (Consume(']')) {
+            return true;
+        }
+        while (position_ < source_.size()) {
+            SourceSpan value;
+            if (!ParseValue(value)) {
+                return false;
+            }
+            if (elements != nullptr) {
+                elements->push_back(value);
+            }
+            SkipWhitespace();
+            if (Consume(']')) {
+                return true;
+            }
+            if (!Consume(',')) {
+                return false;
+            }
+            SkipWhitespace();
+        }
+        return false;
+    }
+
+    std::string_view source_;
+    std::size_t position_ = 0;
+};
+
+Json ParseSpan(std::string_view source, const SourceSpan& span) {
+    return Json::parse(source.begin() + span.first,
+                       source.begin() + span.second);
+}
+
 struct ParsedDocument {
     DatasetMetadata metadata;
     std::vector<Feature> features;
     std::vector<Diagnostic> diagnostics;
     std::shared_ptr<Json> root;
+    std::vector<SourceSpan> featureSpans;
 };
 
 Result<ParsedDocument> ParseDocument(std::string_view source,
@@ -539,6 +833,150 @@ Result<ParsedDocument> ParseDocument(std::string_view source,
     return result;
 }
 
+Result<ParsedDocument> ParseLazyDocument(std::string_view source,
+                                         const ParseOptions& options) {
+    ScannedRoot scanned;
+    if (!JsonSpanScanner(source).ScanRoot(scanned)) {
+        bool validJson = false;
+        try {
+            validJson = Json::accept(source.begin(), source.end());
+        } catch (const std::exception&) {
+            validJson = false;
+        }
+        const std::size_t firstValue = source.find_first_not_of(" \t\n\r");
+        if (validJson &&
+            (firstValue == std::string_view::npos || source[firstValue] != '{')) {
+            return Result<ParsedDocument>::Failure({Issue(
+                DiagnosticCode::UnsupportedGeoJsonRoot, Severity::Error,
+                "root must be a GeoJSON object with a type")});
+        }
+        return Result<ParsedDocument>::Failure({Issue(
+            DiagnosticCode::MalformedJson, Severity::Error,
+            "malformed JSON")});
+    }
+
+    ParsedDocument document;
+    document.metadata.format = "GeoJSON";
+    const auto findMember = [&scanned](std::string_view name)
+        -> const SourceSpan* {
+        for (auto iterator = scanned.members.rbegin();
+             iterator != scanned.members.rend(); ++iterator) {
+            if (iterator->first == name) {
+                return &iterator->second;
+            }
+        }
+        return nullptr;
+    };
+
+    const SourceSpan* typeSpan = findMember("type");
+    if (typeSpan == nullptr) {
+        return Result<ParsedDocument>::Failure({Issue(
+            DiagnosticCode::UnsupportedGeoJsonRoot, Severity::Error,
+            "root must be a GeoJSON object with a type")});
+    }
+    try {
+        const Json type = ParseSpan(source, *typeSpan);
+        if (!type.is_string() || type.get<std::string>() != "FeatureCollection") {
+            return Result<ParsedDocument>::Failure({Issue(
+                DiagnosticCode::UnsupportedGeoJsonRoot, Severity::Error,
+                "root type must be FeatureCollection")});
+        }
+    } catch (const std::exception& error) {
+        return Result<ParsedDocument>::Failure({Issue(
+            DiagnosticCode::MalformedJson, Severity::Error,
+            std::string("malformed JSON: ") + error.what())});
+    }
+
+    if (!scanned.hasFeatures || !scanned.featuresIsArray) {
+        return Result<ParsedDocument>::Failure({Issue(
+            DiagnosticCode::InvalidFeatureCollection, Severity::Error,
+            "FeatureCollection.features must be an array")});
+    }
+
+    for (const auto& member : scanned.members) {
+        if (member.first == "type" || member.first == "bbox" ||
+            member.first == "crs") {
+            continue;
+        }
+        try {
+            PropertyValue property;
+            std::vector<Diagnostic> diagnostics;
+            if (ParseProperty(ParseSpan(source, member.second), property,
+                              diagnostics, std::nullopt)) {
+                document.metadata.foreignMembers[member.first] =
+                    std::move(property);
+            }
+            document.diagnostics.insert(document.diagnostics.end(),
+                                        diagnostics.begin(), diagnostics.end());
+        } catch (const std::exception& error) {
+            return Result<ParsedDocument>::Failure({Issue(
+                DiagnosticCode::MalformedJson, Severity::Error,
+                std::string("malformed JSON: ") + error.what())});
+        }
+    }
+
+    if (const SourceSpan* bboxSpan = findMember("bbox"); bboxSpan != nullptr) {
+        try {
+            Bounds bounds;
+            if (!ParseBounds(ParseSpan(source, *bboxSpan), bounds,
+                             document.diagnostics)) {
+                return Result<ParsedDocument>::Failure(document.diagnostics);
+            }
+            document.metadata.declaredBounds = bounds;
+        } catch (const std::exception& error) {
+            return Result<ParsedDocument>::Failure({Issue(
+                DiagnosticCode::MalformedJson, Severity::Error,
+                std::string("malformed JSON: ") + error.what())});
+        }
+    }
+    if (const SourceSpan* crsSpan = findMember("crs"); crsSpan != nullptr) {
+        try {
+            document.metadata.crs = ParseSpan(source, *crsSpan).dump();
+            document.diagnostics.push_back(Issue(
+                DiagnosticCode::LegacyGeoJsonCrs, Severity::Warning,
+                "legacy crs member was preserved as an extension"));
+        } catch (const std::exception& error) {
+            return Result<ParsedDocument>::Failure({Issue(
+                DiagnosticCode::MalformedJson, Severity::Error,
+                std::string("malformed JSON: ") + error.what())});
+        }
+    }
+
+    Bounds computedBounds;
+    for (std::size_t index = 0; index < scanned.featureSpans.size(); ++index) {
+        try {
+            std::vector<Diagnostic> diagnostics;
+            Feature feature = ParseFeature(
+                ParseSpan(source, scanned.featureSpans[index]), index, options,
+                diagnostics);
+            IncludeBounds(computedBounds, ComputeBounds(feature.geometry));
+            document.diagnostics.insert(document.diagnostics.end(),
+                                        diagnostics.begin(), diagnostics.end());
+        } catch (const std::exception& error) {
+            return Result<ParsedDocument>::Failure({Issue(
+                DiagnosticCode::MalformedJson, Severity::Error,
+                std::string("malformed JSON: ") + error.what())});
+        }
+    }
+    document.metadata.featureCount = scanned.featureSpans.size();
+    document.metadata.computedBounds = computedBounds;
+    if (document.metadata.declaredBounds.has_value() &&
+        !BoundsEqual(*document.metadata.declaredBounds, computedBounds)) {
+        document.diagnostics.push_back(Issue(
+            DiagnosticCode::BoundsMismatch,
+            options.strict ? Severity::Error : Severity::Warning,
+            "declared bounds disagree with computed bounds"));
+    }
+    if (HasErrors(document.diagnostics)) {
+        return Result<ParsedDocument>::Failure(document.diagnostics);
+    }
+    document.featureSpans = std::move(scanned.featureSpans);
+    Result<ParsedDocument> result;
+    result.value = std::move(document);
+    result.diagnostics = result.value->diagnostics;
+    return result;
+}
+
 }  // namespace
 
 Result<DatasetMetadata> ParseMetadata(std::string_view source,
@@ -555,11 +993,14 @@ Result<DatasetMetadata> ParseMetadata(std::string_view source,
 
 Reader::Reader(DatasetMetadata metadata, std::vector<Feature> features,
            std::vector<Diagnostic> diagnostics,
-           std::shared_ptr<const void> document, ParseOptions options)
+                     std::shared_ptr<const std::string> source,
+                     std::vector<std::pair<std::size_t, std::size_t>> featureSpans,
+                     ParseOptions options)
     : metadata_(std::move(metadata)),
       features_(std::move(features)),
     diagnostics_(std::move(diagnostics)),
-    document_(std::move(document)),
+        source_(std::move(source)),
+        featureSpans_(std::move(featureSpans)),
     options_(options) {}
 
 Result<Reader> Reader::Create(std::string source, const ParseOptions& options) {
@@ -574,14 +1015,16 @@ Result<Reader> Reader::Create(std::string source, const ParseOptions& options) {
 
 Result<Reader> Reader::CreateLazy(std::string source,
                                   const ParseOptions& options) {
-    Result<ParsedDocument> parsed = ParseDocument(source, options, false);
+    auto sourceStorage =
+        std::make_shared<const std::string>(std::move(source));
+    Result<ParsedDocument> parsed = ParseLazyDocument(*sourceStorage, options);
     if (!parsed.Succeeded()) {
         return Result<Reader>::Failure(std::move(parsed.diagnostics));
     }
-    std::shared_ptr<const void> document = std::move(parsed.value->root);
     return Result<Reader>::Success(Reader(
         std::move(parsed.value->metadata), {}, std::move(parsed.diagnostics),
-        std::move(document), options));
+        std::move(sourceStorage), std::move(parsed.value->featureSpans),
+        options));
 }
 
 Result<DatasetMetadata> Reader::ReadMetadata() {
@@ -592,15 +1035,14 @@ Result<DatasetMetadata> Reader::ReadMetadata() {
 }
 
 Result<std::optional<Feature>> Reader::ReadNext() {
-    if (document_) {
-        const auto document = std::static_pointer_cast<const Json>(document_);
-        const Json& features = (*document)["features"];
-        if (nextFeature_ == features.size()) {
+    if (source_) {
+        if (nextFeature_ == featureSpans_.size()) {
             return Result<std::optional<Feature>>::Success(std::nullopt);
         }
         std::vector<Diagnostic> diagnostics;
-        Feature feature = ParseFeature(features[nextFeature_], nextFeature_, options_,
-                                       diagnostics);
+        const auto& span = featureSpans_[nextFeature_];
+        Feature feature = ParseFeature(
+            ParseSpan(*source_, span), nextFeature_, options_, diagnostics);
         if (HasErrors(diagnostics)) {
             return Result<std::optional<Feature>>::Failure(
                 std::move(diagnostics));

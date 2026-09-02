@@ -23,7 +23,7 @@ template and verified against the pinned runtime.
 | M2 | `usdGeoJson` FeatureCollection reader and MVP geometries | done |
 | M3 | OpenUSD authoring, triangulation, local-origin metadata | done |
 | M4 | FileFormat registration, `ArAsset`, arguments, integration tests | done: OpenStrata L0-L5 verified |
-| M5 | Scalability baseline and evidence-led bounded-memory improvements | in progress: baseline evidence |
+| M5 | Scalability baseline and evidence-led bounded-memory improvements | in progress: baseline and source-span lazy materialization |
 | M6 | FlatGeobuf and indexed partial-read investigation | deferred |
 
 ## Building

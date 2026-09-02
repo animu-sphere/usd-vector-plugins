@@ -107,6 +107,34 @@ void TestLazyReaderMatchesBufferedReader() {
     assert(!lazy.value->ReadNext().value->has_value());
 }
 
+void TestLazyReaderRootDiagnostics() {
+    auto unsupported = usdvector::geojson::Reader::CreateLazy("[]");
+    assert(!unsupported.Succeeded());
+    assert(unsupported.diagnostics.size() == 1);
+    assert(unsupported.diagnostics[0].code ==
+           usdvector::DiagnosticCode::UnsupportedGeoJsonRoot);
+
+    auto malformed = usdvector::geojson::Reader::CreateLazy("{");
+    assert(!malformed.Succeeded());
+    assert(malformed.diagnostics.size() == 1);
+    assert(malformed.diagnostics[0].code ==
+           usdvector::DiagnosticCode::MalformedJson);
+
+    auto invalidFeatures = usdvector::geojson::Reader::CreateLazy(
+        R"({"type":"FeatureCollection","features":{}})");
+    assert(!invalidFeatures.Succeeded());
+    assert(invalidFeatures.diagnostics.size() == 1);
+    assert(invalidFeatures.diagnostics[0].code ==
+           usdvector::DiagnosticCode::InvalidFeatureCollection);
+
+    auto invalidFeature = usdvector::geojson::Reader::CreateLazy(
+        R"({"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"GeometryCollection","geometries":[]},"properties":{}}]})");
+    assert(!invalidFeature.Succeeded());
+    assert(!invalidFeature.diagnostics.empty());
+    assert(invalidFeature.diagnostics[0].code ==
+           usdvector::DiagnosticCode::UnsupportedGeometryType);
+}
+
 void TestStableDiagnostics() {
     auto malformed = usdvector::geojson::Reader::Create("{");
     assert(!malformed.Succeeded());
@@ -148,6 +176,7 @@ int main() {
         TestFeatureCollectionAndProperties();
         TestAllGeometryFamiliesAndEndOfStream();
         TestLazyReaderMatchesBufferedReader();
+        TestLazyReaderRootDiagnostics();
         TestStableDiagnostics();
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
