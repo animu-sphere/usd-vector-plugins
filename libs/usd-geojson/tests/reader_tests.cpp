@@ -101,10 +101,30 @@ void TestLazyReaderMatchesBufferedReader() {
         assert(bufferedFeature.value->has_value() && lazyFeature.value->has_value());
         assert(usdvector::GetGeometryType(lazyFeature.value->value().geometry) ==
                usdvector::GetGeometryType(bufferedFeature.value->value().geometry));
+        assert(lazyFeature.value->value().id == bufferedFeature.value->value().id);
+        if (index == 0) {
+            const auto& bufferedPoint = std::get<usdvector::Point>(
+                bufferedFeature.value->value().geometry);
+            const auto& lazyPoint = std::get<usdvector::Point>(
+                lazyFeature.value->value().geometry);
+            assert(lazyPoint.coordinate.x == bufferedPoint.coordinate.x);
+            assert(lazyPoint.coordinate.y == bufferedPoint.coordinate.y);
+        }
         assert(lazyFeature.value->value().properties.size() ==
                bufferedFeature.value->value().properties.size());
     }
     assert(!lazy.value->ReadNext().value->has_value());
+}
+
+void TestLazyReaderEmptyFeatureCollection() {
+    auto lazy = usdvector::geojson::Reader::CreateLazy(
+        R"({"type":"FeatureCollection","features":[]})");
+    assert(lazy.Succeeded());
+    auto metadata = lazy.value->ReadMetadata();
+    assert(metadata.Succeeded());
+    assert(metadata.value->featureCount == 0);
+    auto end = lazy.value->ReadNext();
+    assert(end.Succeeded() && !end.value->has_value());
 }
 
 void TestLazyReaderRootDiagnostics() {
@@ -176,6 +196,7 @@ int main() {
         TestFeatureCollectionAndProperties();
         TestAllGeometryFamiliesAndEndOfStream();
         TestLazyReaderMatchesBufferedReader();
+        TestLazyReaderEmptyFeatureCollection();
         TestLazyReaderRootDiagnostics();
         TestStableDiagnostics();
     } catch (const std::exception& error) {

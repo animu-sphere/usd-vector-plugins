@@ -1055,11 +1055,11 @@ Reader::Reader(DatasetMetadata metadata, std::vector<Feature> features,
            std::size_t featureCount, ParseOptions options)
     : metadata_(std::move(metadata)),
       features_(std::move(features)),
-    diagnostics_(std::move(diagnostics)),
-    source_(std::move(source)),
-    featureArraySpan_(featureArraySpan),
-    featureCount_(featureCount),
-    nextFeaturePosition_(featureArraySpan.first + 1),
+            diagnostics_(std::move(diagnostics)),
+            source_(std::move(source)),
+            featureArraySpan_(featureArraySpan),
+            featureCount_(featureCount),
+            nextFeaturePosition_(featureArraySpan.first + 1),
     options_(options) {}
 
 Result<Reader> Reader::Create(std::string source, const ParseOptions& options) {
