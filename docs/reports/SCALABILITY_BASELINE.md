@@ -19,6 +19,19 @@ cmake --build build/m5 --target usd-vector-benchmark
     --output build/m5/baseline.csv
 ```
 
+To isolate reader work from authoring and USD emission, run one case per
+process with `--reader-only`:
+
+```powershell
+.\build\m5\tools\usd-vector-benchmark\usd-vector-benchmark.exe `
+    --reader lazy --reader-only --case points --count 1000
+```
+
+Reader-only mode still opens the source and iterates every feature so the
+feature and vertex counts remain meaningful. It discards each materialized
+feature after counting it, skips `BuildAuthoringPlan`, and leaves the
+authoring and USD columns at zero or blank.
+
 The default run includes 1,000 and 100,000 points, 1,000 16-vertex lines,
 one 1,000-vertex polygon, 1,000 small polygons, 1,000 property-heavy points,
 and 1,000 points with large coordinates. A single case and count can be run
@@ -57,7 +70,7 @@ and a dedicated reader-only process measurement when evaluating this candidate.
 | `authoring_plan_ms` | Time for `BuildAuthoringPlan`. |
 | `peak_rss_bytes` | Process peak working set on Windows. Run one case per process for an isolated value. |
 | `copied_bytes` | Known source handoff copies. The benchmark moves its generated source into the by-value reader API and reports zero for this handoff; any nonzero value identifies an explicit copy in the measured path. |
-| `retained_feature_bytes` | Estimated retained feature, geometry, and property capacity, not an allocator trace. |
+| `retained_feature_bytes` | Estimated feature, geometry, and property capacity retained by the full benchmark workflow, not an allocator trace. Reader-only mode reports zero because each materialized feature is discarded after counting. |
 | `usd_emission_ms` | OpenUSD-enabled builds only. |
 | `flattened_layer_bytes` | OpenUSD-enabled builds only; serialized root layer size. |
 
@@ -110,3 +123,14 @@ move into both reader factories. A 1,000-point run reported `copied_bytes=0`
 for buffered and lazy readers while retaining the same 1,000 feature and 1,000
 vertex counts. This removes the benchmark's known full-source handoff copy;
 it does not claim that parser or authoring allocations are copy-free.
+
+## Reader-only observation
+
+On 2026-09-03, reader-only runs for 1,000 points reported zero
+`authoring_plan_ms` and zero `retained_feature_bytes` for both buffered and
+lazy readers while retaining the same feature and vertex counts. The lazy
+run reported 14.1 ms parse time and 14.2 ms to first feature; the buffered run
+reported 15.8 ms for both measurements. These values are single-process
+observations, not a hardware-independent performance claim. The mode makes
+the reader comparison explicit; it does not change the current lazy reader's
+complete-source validation behavior.

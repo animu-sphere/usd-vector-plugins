@@ -349,7 +349,7 @@ std::string DiagnosticSummary(const std::vector<usdvector::Diagnostic>& diagnost
     return usdvector::DiagnosticCodeString(diagnostics.front().code);
 }
 
-Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy) {
+Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy, bool readerOnly) {
     Metrics metrics;
     metrics.reader = lazy ? "lazy" : "buffered";
     metrics.name = benchmarkCase.name;
@@ -383,8 +383,19 @@ Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy) {
 
     const std::size_t expectedFeatures = metadata.value->featureCount.value_or(0);
     std::vector<usdvector::Feature> features;
-    features.reserve(expectedFeatures);
-    features.push_back(std::move(first.value->value()));
+    if (!readerOnly) {
+        features.reserve(expectedFeatures);
+    }
+    const auto recordFeature = [&features, &metrics, readerOnly](
+                                  usdvector::Feature feature) {
+        ++metrics.featureCount;
+        metrics.vertexCount += GeometryVertexCount(feature.geometry);
+        if (!readerOnly) {
+            metrics.retainedFeatureBytes += FeatureBytes(feature);
+            features.push_back(std::move(feature));
+        }
+    };
+    recordFeature(std::move(first.value->value()));
     while (true) {
         auto next = reader.value->ReadNext();
         if (!next.Succeeded()) {
@@ -393,40 +404,37 @@ Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy) {
         if (!next.value.has_value() || !next.value->has_value()) {
             break;
         }
-        features.push_back(std::move(next.value->value()));
-    }
-    metrics.featureCount = features.size();
-    for (const auto& feature : features) {
-        metrics.vertexCount += GeometryVertexCount(feature.geometry);
-        metrics.retainedFeatureBytes += FeatureBytes(feature);
+        recordFeature(std::move(next.value->value()));
     }
 
-    const auto authoringStart = Clock::now();
-    auto plan = usdvector::authoring::BuildAuthoringPlan(
-        *metadata.value, features);
-    const auto authored = Clock::now();
-    if (!plan.Succeeded()) {
-        throw std::runtime_error("benchmark authoring plan could not be built: " +
-                                 DiagnosticSummary(plan.diagnostics));
-    }
-    metrics.authoringMilliseconds =
-        std::chrono::duration<double, std::milli>(authored - authoringStart).count();
+    if (!readerOnly) {
+        const auto authoringStart = Clock::now();
+        auto plan = usdvector::authoring::BuildAuthoringPlan(
+            *metadata.value, features);
+        const auto authored = Clock::now();
+        if (!plan.Succeeded()) {
+            throw std::runtime_error("benchmark authoring plan could not be built: " +
+                                     DiagnosticSummary(plan.diagnostics));
+        }
+        metrics.authoringMilliseconds =
+            std::chrono::duration<double, std::milli>(authored - authoringStart).count();
 
 #if defined(USDVECTOR_ENABLE_OPENUSD)
-    const auto emissionStart = Clock::now();
-    auto stage = usdvector::authoring::BuildUsdStage(*plan.value);
-    const auto emitted = Clock::now();
-    if (!stage.Succeeded()) {
-        throw std::runtime_error("benchmark USD stage could not be built");
-    }
-    std::string flattened;
-    if (!stage.value->GetRootLayer()->ExportToString(&flattened)) {
-        throw std::runtime_error("benchmark USD layer could not be flattened");
-    }
-    metrics.usdEmissionMilliseconds =
-        std::chrono::duration<double, std::milli>(emitted - emissionStart).count();
-    metrics.flattenedLayerBytes = flattened.size();
+        const auto emissionStart = Clock::now();
+        auto stage = usdvector::authoring::BuildUsdStage(*plan.value);
+        const auto emitted = Clock::now();
+        if (!stage.Succeeded()) {
+            throw std::runtime_error("benchmark USD stage could not be built");
+        }
+        std::string flattened;
+        if (!stage.value->GetRootLayer()->ExportToString(&flattened)) {
+            throw std::runtime_error("benchmark USD layer could not be flattened");
+        }
+        metrics.usdEmissionMilliseconds =
+            std::chrono::duration<double, std::milli>(emitted - emissionStart).count();
+        metrics.flattenedLayerBytes = flattened.size();
 #endif
+    }
 
     metrics.peakRssBytes = PeakRssBytes();
     return metrics;
@@ -487,7 +495,7 @@ std::vector<BenchmarkCase> Cases(const std::optional<std::string>& selected,
 }
 
 void PrintUsage() {
-    std::cerr << "usage: usd-vector-benchmark [--reader MODE] [--case NAME] [--count N] [--output FILE]\n"
+    std::cerr << "usage: usd-vector-benchmark [--reader MODE] [--reader-only] [--case NAME] [--count N] [--output FILE]\n"
                  "readers: buffered, lazy\n"
                  "cases: points, lines, large-polygon, small-polygons, "
                  "property-heavy, large-coordinates\n";
@@ -497,6 +505,7 @@ void PrintUsage() {
 
 int main(int argc, char** argv) {
     bool lazy = false;
+    bool readerOnly = false;
     std::optional<std::string> selectedCase;
     std::size_t count = 1000;
     std::optional<std::string> outputPath;
@@ -509,6 +518,8 @@ int main(int argc, char** argv) {
                 return 2;
             }
             lazy = reader == "lazy";
+        } else if (argument == "--reader-only") {
+            readerOnly = true;
         } else if (argument == "--case" && index + 1 < argc) {
             selectedCase = argv[++index];
         } else if (argument == "--count" && index + 1 < argc) {
@@ -548,7 +559,7 @@ int main(int argc, char** argv) {
             return 1;
         }
         for (const auto& benchmarkCase : Cases(selectedCase, count)) {
-            const Metrics metrics = Measure(benchmarkCase, lazy);
+            const Metrics metrics = Measure(benchmarkCase, lazy, readerOnly);
             if (!WriteMetrics(*output, metrics)) {
                 std::cerr << "could not write benchmark output\n";
                 return 1;
