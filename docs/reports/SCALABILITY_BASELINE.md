@@ -46,6 +46,7 @@ and a dedicated reader-only process measurement when evaluating this candidate.
 | Column | Meaning |
 | --- | --- |
 | `reader` | Reader backend: `buffered` retains project-owned Features after open; `lazy` retains parser-owned JSON and materializes one Feature per `ReadNext`. |
+| `case` | Benchmark case name: `points`, `lines`, `large-polygon`, `small-polygons`, `property-heavy`, or `large-coordinates`. |
 | `requested_count` | Requested case size; its interpretation depends on the case (for example, feature count or polygon vertex count). |
 | `source_bytes` | Generated GeoJSON source size. |
 | `features`, `vertices` | Counts recovered by the reader. |
