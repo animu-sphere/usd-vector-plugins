@@ -22,12 +22,24 @@ cmake --build build/m5 --target usd-vector-benchmark
 The default run includes 1,000 and 100,000 points, 1,000 16-vertex lines,
 one 1,000-vertex polygon, 1,000 small polygons, 1,000 property-heavy points,
 and 1,000 points with large coordinates. A single case and count can be run
-with `--case NAME --count N`.
+with `--case NAME --count N`. The default reader is `buffered`; the
+M5-compatible lazy materialization candidate can be measured with
+`--reader lazy`. Both modes use the same project-owned reader contract and
+produce the same semantic feature sequence. The lazy candidate still parses a
+whole JSON DOM at open time, so it is not a streaming parser or a bounded-memory
+claim.
+
+The benchmark materializes every feature again for the shared authoring-plan
+measurement. Consequently, `peak_rss_bytes` and `retained_feature_bytes` in a
+lazy run describe the complete reader-plus-authoring workflow, not the reader's
+post-open retained state. Use `time_to_open_ms`, `time_to_first_feature_ms`,
+and a dedicated reader-only process measurement when evaluating this candidate.
 
 ## Metric contract
 
 | Column | Meaning |
 | --- | --- |
+| `reader` | Reader backend: `buffered` retains project-owned Features after open; `lazy` retains parser-owned JSON and materializes one Feature per `ReadNext`. |
 | `requested_count` | Requested case size; its interpretation depends on the case (for example, feature count or polygon vertex count). |
 | `source_bytes` | Generated GeoJSON source size. |
 | `features`, `vertices` | Counts recovered by the reader. |
@@ -64,6 +76,9 @@ points is the first measured case above it. This is an evidence boundary for
 follow-up work, not a universal hardware limit.
 
 The first-feature time is effectively the open time for every case. That is
-expected: the current reader parses and stores the whole JSON document in
-`Reader::Create`. The next M5 step is to measure a streaming candidate against
-this report; no backend replacement is claimed by this baseline.
+expected for the buffered reader, which parses and stores the whole JSON
+document in `Reader::Create`. The lazy candidate removes retained project-owned
+Feature objects after open, but still parses the complete JSON DOM. Its results
+are evidence for the value of lazy materialization only; a streaming parser
+must be measured separately before claiming bounded memory or earlier first
+feature delivery.
