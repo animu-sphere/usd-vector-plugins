@@ -1,0 +1,241 @@
+# Tag-triggered release workflow for the verified cy2026 Windows artifact.
+name: release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to validate and build'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  OST_VERSION: '0.22.8'
+  OST_REPOSITORY: animu-sphere/open-strata
+  OST_PLATFORM: cy2026
+  OST_PROFILE: usd
+  RUNTIME_ARTIFACT: sha256:ebb0c7da509ee14ada19ee5b461de6996aad0024b5c9640f12dde76912e849b5
+  RUNTIME_REMOTE: oci://ghcr.io/animu-sphere/openstrata-runtime-cy2026-usd@sha256:d3ff79a6f330558c3b9a427a927d340fe3dcab1fe89107faa0ea9f66a104b7bf
+
+jobs:
+  build:
+    name: Build windows-x86_64
+    runs-on: windows-2022
+    steps:
+      - name: Check out the tagged source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Resolve and validate release tag
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-$REF_NAME}"
+          version="$(tr -d '[:space:]' < VERSION)"
+          if [ "$tag" != "v${version}" ]; then
+            echo "Expected tag v${version}, got ${tag}" >&2
+            exit 1
+          fi
+          python tools/check_release_metadata.py
+
+      - name: Bootstrap ost
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ost-ci/bootstrap-bin
+          asset="ost-cli-x86_64-pc-windows-msvc.zip"
+          base="https://github.com/${OST_REPOSITORY}/releases/download/v${OST_VERSION}"
+          curl -fsSLo "$asset" "$base/$asset"
+          curl -fsSLo "$asset.sha256" "$base/$asset.sha256"
+          actual="$(sha256sum "$asset" | cut -d' ' -f1)"
+          published="$(cut -d' ' -f1 "$asset.sha256")"
+          if [ "$actual" != "$published" ]; then
+            echo "ost checksum mismatch for $asset" >&2
+            exit 1
+          fi
+          powershell -NoProfile -Command "Expand-Archive -LiteralPath '$asset' -DestinationPath '.ost-ci/bootstrap-bin' -Force"
+          bin="$(find .ost-ci/bootstrap-bin -type f -name ost.exe | head -n 1)"
+          if [ -z "$bin" ]; then
+            echo 'ost.exe not found' >&2
+            exit 1
+          fi
+          bin_dir="$(cd "$(dirname "$bin")" && pwd)"
+          echo "$(cygpath -w "$bin_dir")" >> "$GITHUB_PATH"
+
+      - name: Verify ost and CI contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(powershell -NoProfile -Command '& ost.exe --version' | tr -d '\r')"
+          test "$version" = "ost ${OST_VERSION}"
+          ost ci validate
+
+      - name: Pull and verify the OpenUSD runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! ost artifact show "$RUNTIME_ARTIFACT" --json > /dev/null 2>&1; then
+            ost artifact pull "$RUNTIME_REMOTE" \
+              --expect-artifact "$RUNTIME_ARTIFACT" \
+              --require-kind runtime --json
+          fi
+          ost artifact verify "$RUNTIME_ARTIFACT" \
+            --minimum-trust local --require-sbom --require-provenance
+          ost runtime pull "$OST_PLATFORM" --profile "$OST_PROFILE" \
+            --from-artifact "$RUNTIME_ARTIFACT" --force
+          ost runtime validate "$OST_PLATFORM" --profile "$OST_PROFILE" --json
+
+      - name: Build and verify the GeoJSON plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          ost plugin build plugins/vector-geojson \
+            --target "$OST_PLATFORM" --profile "$OST_PROFILE"
+          ost plugin test plugins/vector-geojson \
+            --target "$OST_PLATFORM" --profile "$OST_PROFILE" --up-to 5 --json
+
+      - name: Package release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-stage
+          ost plugin package --workspace --product \
+            --target "$OST_PLATFORM" --profile "$OST_PROFILE" --json \
+            | tee release-stage/package.json
+
+          version="$(tr -d '[:space:]' < VERSION)"
+          target="cy2026-windows-x86_64-py313-usd"
+          plugin_dir="plugins/vector-geojson/dist/plugins/vector-geojson/${version}/${target}"
+          product_dir="dist/products/usd-vector-plugins/${version}/${target}"
+          test -d "$plugin_dir"
+          test -d "$product_dir"
+          find "$plugin_dir" -maxdepth 1 -type f -name '*.tar.zst' \
+            -exec cp {} release-stage/ \;
+          find "$product_dir" -maxdepth 1 -type f -name '*.tar.zst' \
+            -exec cp {} release-stage/ \;
+          cp "$plugin_dir/manifest.json" release-stage/vector-geojson.manifest.json
+          cp "$plugin_dir/sbom.spdx.json" release-stage/vector-geojson.sbom.spdx.json
+          cp "$plugin_dir/SHA256SUMS" release-stage/vector-geojson.SHA256SUMS
+          cp "$product_dir/manifest.json" release-stage/usd-vector-plugins.manifest.json
+          cp "$product_dir/sbom.spdx.json" release-stage/usd-vector-plugins.sbom.spdx.json
+          cp "$product_dir/SHA256SUMS" release-stage/usd-vector-plugins.SHA256SUMS
+          cp LICENSE NOTICE THIRD_PARTY_NOTICES.md \
+            "docs/releases/v${version}.md" release-stage/
+          test -f release-stage/LICENSE
+          test -f release-stage/NOTICE
+          test -f release-stage/THIRD_PARTY_NOTICES.md
+          test -f "release-stage/v${version}.md"
+          test -n "$(find release-stage -type f -print -quit)"
+
+      - name: Upload platform release assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-windows-x86_64
+          path: release-stage/
+          if-no-files-found: error
+
+  release:
+    name: Assemble draft release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the tagged source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Resolve release version
+        id: release
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-$REF_NAME}"
+          version="$(tr -d '[:space:]' < VERSION)"
+          test "$tag" = "v${version}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Download platform assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: release-*
+          path: dist-release
+          merge-multiple: true
+
+      - name: Add source archive and checksums
+        shell: bash
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          git archive --format=tar.gz \
+            --prefix="usd-vector-plugins-${VERSION}/" \
+            -o "dist-release/usd-vector-plugins-${VERSION}-src.tar.gz" "$TAG"
+          cd dist-release
+          find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\n' \
+            | LC_ALL=C sort | xargs sha256sum > SHA256SUMS
+          sha256sum -c SHA256SUMS
+          cp "../docs/releases/v${VERSION}.md" RELEASE_NOTES.md
+          {
+            echo
+            echo '## Artifacts'
+            echo
+            echo '| File | Description |'
+            echo '| --- | --- |'
+            while IFS= read -r file; do
+              printf '| `%s` | Release artifact |\n' "$file"
+            done < <(find . -maxdepth 1 -type f ! -name RELEASE_NOTES.md \
+              ! -name SHA256SUMS -printf '%P\n' | LC_ALL=C sort)
+            echo '| `SHA256SUMS` | SHA-256 checksums for all release artifacts |'
+            echo
+            echo '## SHA-256 checksums'
+            echo
+            echo '```text'
+            cat SHA256SUMS
+            echo '```'
+          } >> RELEASE_NOTES.md
+
+      - name: Create draft GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --json isDraft > existing.json 2>/dev/null; then
+            if [ "$(jq -r .isDraft existing.json)" = true ]; then
+              gh release delete "$TAG" --yes
+            else
+              echo "Release $TAG is already published; refusing to replace it" >&2
+              exit 1
+            fi
+          fi
+          mapfile -t assets < <(
+            find dist-release -maxdepth 1 -type f ! -name RELEASE_NOTES.md \
+              -printf '%p\n' | LC_ALL=C sort
+          )
+          gh release create "$TAG" --draft \
+            --title "$TAG" --notes-file dist-release/RELEASE_NOTES.md \
+            "${assets[@]}"
