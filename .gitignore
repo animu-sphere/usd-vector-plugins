@@ -10,3 +10,6 @@ CMakeUserPresets.json
 /.ost-ci-home/
 /dist/
 /release-stage/
+
+# OpenStrata component package outputs.
+/plugins/vector-geojson/dist/

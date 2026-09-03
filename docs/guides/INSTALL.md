@@ -42,9 +42,10 @@ open a source.
 Do not copy only the shared library; registration metadata and relative
 resources are part of the artifact.
 
-The distributable artifact also carries the repository `LICENSE`, `NOTICE`,
-and `THIRD_PARTY_NOTICES.md`. Packaging is incomplete if any of these files is
-missing.
+The CMake install artifact also carries the repository `LICENSE`, `NOTICE`,
+and `THIRD_PARTY_NOTICES.md` under `share/usd-vector-plugins/`. The OpenStrata
+package carries its own manifest, SBOM, provenance, and verification evidence;
+the release gate checks both outputs.
 
 ## Compatibility
 
