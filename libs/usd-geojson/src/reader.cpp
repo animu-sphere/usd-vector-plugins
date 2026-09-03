@@ -1120,6 +1120,9 @@ bool Reader::CompleteLazyMetadata() {
 }
 
 Result<std::optional<Feature>> Reader::ReadNext() {
+    if (lazyExhausted_) {
+        return Result<std::optional<Feature>>::Success(std::nullopt);
+    }
     if (source_) {
         if (lazyReadFailed_) {
             return Result<std::optional<Feature>>::Failure(
@@ -1148,6 +1151,10 @@ Result<std::optional<Feature>> Reader::ReadNext() {
                     return Result<std::optional<Feature>>::Failure(diagnostics_);
                 }
             }
+            source_.reset();
+            featureArraySpan_ = {};
+            nextFeaturePosition_ = 0;
+            lazyExhausted_ = true;
             return Result<std::optional<Feature>>::Success(std::nullopt);
         }
         std::vector<Diagnostic> diagnostics;

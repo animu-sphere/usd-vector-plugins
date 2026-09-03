@@ -100,6 +100,11 @@ void TestLazyReaderMatchesBufferedReader() {
                bufferedFeature.value->value().properties.size());
     }
     assert(!lazy.value->ReadNext().value->has_value());
+        auto metadataAfterEnd = lazy.value->ReadMetadata();
+        assert(metadataAfterEnd.Succeeded() &&
+            metadataAfterEnd.value->featureCount == 7);
+        auto repeatedEnd = lazy.value->ReadNext();
+        assert(repeatedEnd.Succeeded() && !repeatedEnd.value->has_value());
 
     auto bufferedMetadata = buffered.value->ReadMetadata();
     auto lazyMetadata = lazy.value->ReadMetadata();
