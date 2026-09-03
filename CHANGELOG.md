@@ -2,8 +2,9 @@
 
 All notable changes to this project are documented here.
 
-The project has not tagged a release. The release sequence is maintained in
-[the implementation plan](docs/roadmap/IMPLEMENTATION_PLAN.md).
+The release sequence is maintained in
+[the implementation plan](docs/roadmap/IMPLEMENTATION_PLAN.md). Release
+records are kept in [docs/releases](docs/releases/README.md).
 
 ## [Unreleased]
 
@@ -24,7 +25,7 @@ The project has not tagged a release. The release sequence is maintained in
 - Synchronized the design, architecture, capability, diagnostics, build, and
   install documents with the implemented M0-M4 GeoJSON vertical slice.
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-09-04
 
 ### Added
 

@@ -1,0 +1,69 @@
+# OpenStrata CI support matrix for usd-vector-plugins.
+#
+# Source cells build the checked-out workspace or plugin against the pinned
+# OpenUSD runtime. The OpenUSD-free core lane remains in
+# .github/workflows/core.yml because it intentionally materializes no runtime.
+# Regenerate the source workflow with `ost ci generate github` after changing
+# this file; do not hand-edit generated CI semantics.
+schema: 1
+
+bootstrap:
+  ost:
+    version: "0.22.8"
+    repository: animu-sphere/open-strata
+
+runners:
+  windows-hosted:
+    kind: github-hosted
+    image: windows-2022
+    billing:
+      acknowledgement: required
+
+cells:
+  - name: workspace-pr-windows
+    lane: pull_request
+    kind: workspace
+    verify: test
+    runner: windows-hosted
+    runtime_artifact: sha256:ebb0c7da509ee14ada19ee5b461de6996aad0024b5c9640f12dde76912e849b5
+    runtime_remote:
+      uri: oci://ghcr.io/animu-sphere/openstrata-runtime-cy2026-usd@sha256:d3ff79a6f330558c3b9a427a927d340fe3dcab1fe89107faa0ea9f66a104b7bf
+      expected_oci_digest: sha256:d3ff79a6f330558c3b9a427a927d340fe3dcab1fe89107faa0ea9f66a104b7bf
+    platform: cy2026
+    profile: usd
+
+  - name: workspace-main-windows
+    lane: main
+    kind: workspace
+    verify: test
+    runner: windows-hosted
+    runtime_artifact: sha256:ebb0c7da509ee14ada19ee5b461de6996aad0024b5c9640f12dde76912e849b5
+    runtime_remote:
+      uri: oci://ghcr.io/animu-sphere/openstrata-runtime-cy2026-usd@sha256:d3ff79a6f330558c3b9a427a927d340fe3dcab1fe89107faa0ea9f66a104b7bf
+      expected_oci_digest: sha256:d3ff79a6f330558c3b9a427a927d340fe3dcab1fe89107faa0ea9f66a104b7bf
+    platform: cy2026
+    profile: usd
+
+  - name: vector-geojson-pr-windows
+    lane: pull_request
+    runner: windows-hosted
+    runtime_artifact: sha256:ebb0c7da509ee14ada19ee5b461de6996aad0024b5c9640f12dde76912e849b5
+    runtime_remote:
+      uri: oci://ghcr.io/animu-sphere/openstrata-runtime-cy2026-usd@sha256:d3ff79a6f330558c3b9a427a927d340fe3dcab1fe89107faa0ea9f66a104b7bf
+      expected_oci_digest: sha256:d3ff79a6f330558c3b9a427a927d340fe3dcab1fe89107faa0ea9f66a104b7bf
+    bundle: plugins/vector-geojson
+    platform: cy2026
+    profile: usd
+    up_to: 5
+
+  - name: vector-geojson-main-windows
+    lane: main
+    runner: windows-hosted
+    runtime_artifact: sha256:ebb0c7da509ee14ada19ee5b461de6996aad0024b5c9640f12dde76912e849b5
+    runtime_remote:
+      uri: oci://ghcr.io/animu-sphere/openstrata-runtime-cy2026-usd@sha256:d3ff79a6f330558c3b9a427a927d340fe3dcab1fe89107faa0ea9f66a104b7bf
+      expected_oci_digest: sha256:d3ff79a6f330558c3b9a427a927d340fe3dcab1fe89107faa0ea9f66a104b7bf
+    bundle: plugins/vector-geojson
+    platform: cy2026
+    profile: usd
+    up_to: 5

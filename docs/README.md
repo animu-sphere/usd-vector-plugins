@@ -16,6 +16,7 @@ incremental lazy materialization evidence are available.
 | [guides/](guides/) | How to build and install the project. | [BUILDING.md](guides/BUILDING.md), [INSTALL.md](guides/INSTALL.md) |
 | [roadmap/](roadmap/) | What will be implemented and in which order. | [README.md](roadmap/README.md), [IMPLEMENTATION_PLAN.md](roadmap/IMPLEMENTATION_PLAN.md) |
 | [reports/](reports/) | Measured acceptance evidence and reproducibility records. | [SCALABILITY_BASELINE.md](reports/SCALABILITY_BASELINE.md) |
+| [releases/](releases/) | Immutable records for tagged releases. | [README.md](releases/README.md) |
 
 ## The one-sentence version
 

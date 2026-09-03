@@ -24,6 +24,13 @@ endif()
 
 include(CTest)
 
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(BUILD_TESTING AND Python3_Interpreter_FOUND)
+    add_test(NAME release_metadata
+        COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_release_metadata.py")
+endif()
+
 add_subdirectory(libs/usd-vector-core)
 add_subdirectory(third_party)
 add_subdirectory(libs/usd-geojson)
