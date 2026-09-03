@@ -86,8 +86,9 @@ default table is [FILE_FORMAT_ARGUMENTS.md](../architecture/FILE_FORMAT_ARGUMENT
   root metadata are validated at open; feature validation and materialization are
   deferred to `ReadNext`. A complete metadata request performs a non-consuming
   feature scan, while normal iteration can return the first feature before later
-  features are parsed. The default factory remains buffered, and lazy mode still
-  retains the complete source text, so this is not a fully bounded-memory parser.
+  features are parsed. The source text is released after successful end-of-stream,
+  but remains retained during iteration and when complete metadata is requested
+  before iteration, so this is not a fully bounded-memory parser.
 - GeoJSON has no spatial index; bounding-box filtering would still require a
   full scan and is therefore deferred.
 - No implicit reprojection or axis conversion occurs.

@@ -39,8 +39,10 @@ with `--case NAME --count N`. The default reader is `buffered`; the
 M5-compatible cursor-based lazy materialization candidate can be measured with
 `--reader lazy`. Both modes use the same project-owned reader contract and
 produce the same semantic feature sequence. The lazy candidate retains the
-source text and a cursor into the feature array, rather than a whole JSON DOM,
-all feature ranges, or all project-owned Features.
+source text and a cursor into the feature array while iteration is active,
+rather than a whole JSON DOM, all feature ranges, or all project-owned Features.
+After successful end-of-stream it releases the source text and cursor state
+while keeping metadata and diagnostics available.
 
 `CreateLazy` validates root structure and root metadata while opening, then
 defers feature validation and materialization to `ReadNext`. A caller that asks
@@ -100,7 +102,8 @@ The lazy reader scans JSON structure during open and materializes one
 project-owned Feature per `ReadNext`. Its first-feature time therefore excludes
 later feature parsing. Complete metadata remains available through a
 non-consuming scan when requested before iteration, while normal streaming can
-defer that work until features are consumed.
+defer that work until features are consumed. Once normal streaming reaches
+successful end-of-stream, the source text and cursor state are released.
 
 ## Source-cursor candidate observation
 

@@ -23,7 +23,9 @@ source text and a cursor into the feature array, then materializes one
 project-owned Feature per `ReadNext`. Feature validation is deferred until the
 feature is read. If complete metadata is requested before iteration,
 `ReadMetadata` performs a non-consuming scan and returns the same metadata and
-diagnostics as the buffered factory.
+diagnostics as the buffered factory. After successful end-of-stream, the lazy
+reader releases its source text and cursor state while retaining metadata and
+diagnostics for subsequent reads.
 
 ## 2. Geometry
 
