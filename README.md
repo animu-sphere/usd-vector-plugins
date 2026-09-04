@@ -9,6 +9,29 @@ This project is licensed under the [Apache License 2.0](LICENSE). Third-party
 components and their licenses are listed in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
+## Open a GeoJSON asset
+
+After installing the `vector-geojson` plugin into an OpenUSD environment,
+GeoJSON participates in composition like any other supported asset:
+
+```cpp
+#include <pxr/usd/usd/stage.h>
+
+pxr::UsdStageRefPtr stage = pxr::UsdStage::Open("roads.geojson");
+```
+
+The stage contains deterministic OpenUSD geometry under a stable hierarchy:
+
+```text
+/Vector                         UsdGeomXform
+/Vector/Features                UsdGeomXform
+/Vector/Features/<featureName>  Points, BasisCurves, Mesh, or Xform
+```
+
+See [docs/guides/INSTALL.md](docs/guides/INSTALL.md) for plugin installation
+and [docs/architecture/USD_MAPPING.md](docs/architecture/USD_MAPPING.md) for
+the complete geometry, property, and metadata mapping.
+
 ## Status
 
 The OpenUSD-independent `usdVectorCore` model and buffered `usdGeoJson` reader
@@ -24,7 +47,9 @@ template and verified against the pinned runtime.
 | M3 | OpenUSD authoring, triangulation, local-origin metadata | done |
 | M4 | FileFormat registration, `ArAsset`, arguments, integration tests | done: OpenStrata L0-L5 verified |
 | M5 | Scalability baseline and evidence-led bounded-memory improvements | in progress: baseline and cursor-based lazy materialization |
-| M6 | FlatGeobuf and indexed partial-read investigation | deferred |
+| M6 | Runtime composition validation with `usd-geospatial-runtime` | planned |
+| M7 | FlatGeobuf architecture validation | deferred |
+| M8 | Indexed partial-read and selective-composition contract | deferred |
 
 ## Building
 

@@ -1,10 +1,19 @@
 # Implementation Plan
 
-Last updated: 2026-09-03
+Last updated: 2026-09-04
 
 This is the canonical ordered plan after completion of the GeoJSON vertical
 slice. The existing GeoJSON implementation is the compatibility baseline, not
 a prototype to bypass while adding formats.
+
+```text
+Stabilize -> Scale -> Compose -> Generalize -> Select
+ v0.1.x       M5       runtime     FlatGeobuf   indexed reads
+```
+
+The goal is not to maximize the number of formats. It is to prove that the
+format-independent ingestion architecture remains useful under operational,
+large-data, and runtime-composition constraints.
 
 ## 1. Fixed boundaries
 
@@ -25,86 +34,94 @@ topology, arguments, and diagnostic codes are public compatibility contracts.
 
 ## 2. Ordered delivery
 
-### Step 1: contract sync
+### Phase 1: Stabilize the v0.1.x line
 
-Keep README, design, architecture, capability, diagnostics, build, install,
-and roadmap documents aligned with the implemented M0-M4 state. A capability
-is not implemented merely because a directory or class exists.
+Close GeoJSON edge cases and keep diagnostics, FileFormat arguments, CRS,
+foreign members, bounds, and large-coordinate behavior aligned with their
+documented contracts. Add regression tests around each corrected behavior.
 
-### Step 2: M4 hardening
+Improve clean build, install, package, and release reproducibility. Keep the
+root README focused on the shortest path from `UsdStage::Open` to authored
+Points, BasisCurves, and Mesh prims; keep detailed contracts in `docs/`.
 
-Close the remaining plugin edge cases with semantic tests for discovery,
-GeoJSON-bearing `.json` probing, unrelated JSON rejection, resolver-backed
-`ArAsset` reads, malformed sources, arguments, deterministic output, and
-flatten/reopen behavior. Prefer small hand-authored fixtures grouped by the
-semantic behavior they exercise.
+### Phase 2: Establish the M5 scalability contract
 
-### Step 3: artifact completion
+Measure the complete boundary, not only reader parsing:
 
-Verify a clean OpenStrata build, install layout, post-install plugin discovery,
-license and notice inclusion, version metadata, and reproducible artifact
-output. Publish the plugin as an independently versioned component with an
-explicit OpenUSD compatibility range.
+```text
+Reader -> Feature materialization -> Authoring plan -> USD stage emission
+```
 
-### Step 4: runtime composition
-
-After artifact completion, `usd-geospatial-runtime` may pin and compose the
-published vector artifact. Runtime acceptance covers local and
-resolver-backed GeoJSON, `.json` probing, geometry and property preservation,
-CRS and local-origin metadata, diagnostics, artifact reconstruction, SBOM,
-and provenance. Runtime concerns must not add transport or sibling-plugin
-dependencies here.
-
-### Step 5: M5 baseline
-
-Measure before replacing the buffered backend. The benchmark/evidence runner
-records source bytes, feature and vertex counts, parse time, authoring-plan
-time, USD emission time, time to first feature, time to open, peak RSS, copied
-bytes, temporary geometry memory, and flattened layer size.
-
-Synthetic cases should include 1,000 and 100,000 points, many lines, one large
-polygon, many small polygons, property-heavy features, and large coordinate
-values. The report must identify the dataset sizes at which buffered GeoJSON
-becomes unsuitable.
-
-### Step 6: evidence-led scalability work
-
-Select only improvements justified by the baseline: incremental JSON parsing,
-lazy property decoding, geometry callbacks, allocation changes, reduced
-copying, direct plan generation, or bounded feature batches. Parser-owned JSON
-types must not leak into the core reader contract.
-
-The current GeoJSON lazy reader applies incremental JSON structure scanning:
-`CreateLazy` defers feature validation and materialization to `ReadNext`, while
-`ReadMetadata` can perform a non-consuming complete scan when full metadata is
-requested before iteration. The measured behavior is recorded in
+The benchmark records source bytes, feature and vertex counts, parse time,
+authoring-plan time, USD emission time, time to first feature, time to open,
+peak RSS, copied bytes, temporary geometry memory, and flattened layer size.
+The current baseline and reproduction procedure are in
 [SCALABILITY_BASELINE.md](../reports/SCALABILITY_BASELINE.md).
 
-### Step 7: explicit converter
+Retain `VectorDataset` for deterministic batch processing. Introduce bounded
+feature batches or incremental authoring only when measurements show that
+reader laziness is being defeated by downstream materialization. Parser-owned
+types must not leak into the shared vector contract.
 
-Start `tools/usd-vector-convert` only after scale, reprojection, partitioning,
-or tiling requirements are concrete. The FileFormat plugin and converter must
-share readers and authoring instead of implementing parallel mappings.
+M5 is complete when buffered and lazy use cases are explicit, reader memory is
+measurable, the authoring materialization boundary is understood, and the need
+for incremental authoring can be decided from evidence.
 
-### Step 8: FlatGeobuf investigation
+### Phase 3: Validate runtime composition
 
-Specify the indexed read, seek/range source, feature iteration, source
-identity, and resolver interaction contracts before implementation. The goal
-is to prove `ArAsset` plus indexed partial reads, not merely increase the
-format count. GDAL remains optional or converter-only; it does not enter
-`usdVectorCore`.
+Integrate the published artifact with `usd-geospatial-runtime` and verify the
+boundary in a real composition:
+
+```text
+ArResolver -> Vector FileFormat -> source-space USD
+                                      |
+                                      v
+                         usd-geospatial-runtime
+                                      |
+                                      v
+                         placement and composition
+```
+
+Acceptance covers local and resolver-backed assets, CRS and local-origin
+metadata handoff, runtime placement, layer composition, diagnostics, artifact
+reconstruction, SBOM, and provenance. Integration findings may refine a
+contract, but must not move transport, reprojection, or placement policy into
+this repository.
+
+### Phase 4: Generalize with FlatGeobuf
+
+Use FlatGeobuf to validate the format-independent architecture under binary
+parsing, large datasets, spatial indexing, and range-read pressure. Implement
+in this order: sequential reader, shared vector-model mapping, shared USD
+authoring, benchmark, index-aware investigation, then selective reads.
+
+Do not create a format-specific authoring path. GDAL may be evaluated as an
+optional backend or oracle, but does not enter `usdVectorCore` as a mandatory
+dependency. Detailed admission rules are in
+[FORMAT_EXPANSION.md](FORMAT_EXPANSION.md).
+
+### Phase 5: Define indexed partial reads
+
+Specify seek/range byte sources, spatial selection, feature iteration, source
+identity, and resolver interaction from evidence gathered with an indexed
+format. Bounding-box, tile, feature-range, LOD, and runtime-driven loading are
+candidate capabilities, not early v0.2 requirements.
+
+The target is spatially selective USD composition without whole-file feature
+materialization. Avoid a general LOD or tiling framework until a concrete
+format and runtime use case establishes the required abstraction.
 
 ## 3. Release sequence
 
 | Candidate | Required story |
 | --- | --- |
-| v0.1 | GeoJSON vertical slice, deterministic mapping, precision-safe coordinates, typed properties, CRS preservation, resolver compatibility, reproducible artifact, and acceptance evidence |
-| v0.2 | M5 evidence, bounded-memory improvement where justified, and a documented practical size envelope |
-| v0.3 | Indexed-source experiment, FlatGeobuf vertical slice, and range-read contract |
+| v0.1.x | Stabilized GeoJSON behavior, diagnostics, tests, documentation, installation, and reproducible artifacts |
+| v0.2.0 | A clear architecture advance demonstrated by M5 completion, runtime-composition validation, a second format on the shared architecture, or the first selective-read contract |
+| v0.3.x and later | Production FlatGeobuf, indexed reads, selective composition, streaming authoring, runtime-driven spatial loading, or additional formats as justified |
 
-Version numbers may change before publication, but a release must tell one of
-these complete stories rather than claiming readiness from format discovery
-alone.
+The exact v0.2.0 gate is selected from measured integration needs; format count
+alone is not a release story. Version numbers may change before publication,
+but each release must describe one complete architecture advance.
 
 ## 4. Definition of done
 
