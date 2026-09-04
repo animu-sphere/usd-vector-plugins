@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Last updated: 2026-09-04
+Last updated: 2026-09-05
 
 This is the canonical ordered plan after completion of the GeoJSON vertical
 slice. The existing GeoJSON implementation is the compatibility baseline, not
@@ -43,6 +43,14 @@ documented contracts. Add regression tests around each corrected behavior.
 Improve clean build, install, package, and release reproducibility. Keep the
 root README focused on the shortest path from `UsdStage::Open` to authored
 Points, BasisCurves, and Mesh prims; keep detailed contracts in `docs/`.
+
+Define the direct-read stage policy: author `/Vector` as the default prim.
+Leave up-axis and `metersPerUnit` unset unless explicitly supplied through
+FileFormat arguments or required by the composing runtime. Expose explicit
+arguments `upAxis=y|z` and `metersPerUnit=<positive finite number>` without
+using either as an implicit source conversion. Preserve source CRS and source
+coordinate semantics separately. Add default-prim, override, invalid-value,
+layer-identity, and composition tests before marking the capability complete.
 
 ### Phase 2: Establish the M5 scalability contract
 

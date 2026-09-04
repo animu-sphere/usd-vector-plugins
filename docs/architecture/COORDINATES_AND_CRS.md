@@ -53,7 +53,11 @@ semantics in the MVP; they are not normalized into a different range.
 The plugin does not claim that angular source coordinates are meters. It
 authors the source CRS declaration, original bounds, and local origin so a host
 can interpret the stage deliberately. `metersPerUnit` and up-axis are not
-invented from a GeoJSON document that does not define them.
+currently invented from a GeoJSON document that does not define them. A
+planned direct-read stage policy will author `/Vector` as the default prim and
+leave those stage values unset unless explicitly requested. FileFormat
+arguments may provide them when a host or runtime requires them. That policy
+will not swap source axes, reproject, or convert source units.
 
 An explicit converter may reproject into a metric, Y-up or Z-up stage. Such a
 conversion records source CRS, target CRS, axis mapping, units, and converter

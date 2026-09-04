@@ -54,8 +54,10 @@ used.
 
 The aggregate plugin product installs its runtime acceptance probe at
 `share/usd-vector-plugins/probes/packaged_probe.py`. The probe loads the
-registered GeoJSON format, opens the packaged fixture, and verifies the
-authored point, feature identity, typed property, and local-origin metadata.
+registered GeoJSON format, opens both the `.geojson` and GeoJSON-bearing
+`.json` fixtures, verifies the authored point, feature identity, typed
+property, and local-origin metadata, and confirms that unrelated JSON and
+invalid GeoJSON are rejected.
 
 ## Runtime and compatibility
 
