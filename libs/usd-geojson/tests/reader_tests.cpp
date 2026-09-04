@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <exception>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <variant>
 
@@ -145,6 +146,44 @@ void TestLazyMetadataDoesNotConsumeFeatures() {
                .coordinate.x == 1.0);
 }
 
+void TestReaderBatchPreservesOrderAndEndOfStream() {
+    auto lazy = usdvector::geojson::Reader::CreateLazy(Sample());
+    assert(lazy.Succeeded());
+
+    auto empty = lazy.value->ReadBatch(0);
+    assert(empty.Succeeded() && empty.value->empty());
+
+    auto firstBatch = lazy.value->ReadBatch(2);
+    assert(firstBatch.Succeeded() && firstBatch.value->size() == 2);
+    assert(std::get<std::string>(*firstBatch.value->at(0).id) == "point");
+    assert(!firstBatch.value->at(1).id.has_value());
+
+    auto remaining = lazy.value->ReadBatch(10);
+    assert(remaining.Succeeded() && remaining.value->size() == 5);
+    auto end = lazy.value->ReadBatch(10);
+    assert(end.Succeeded() && end.value->empty());
+}
+
+void TestReaderBatchPreservesReadFailure() {
+    auto lazy = usdvector::geojson::Reader::CreateLazy(
+        R"({"type":"FeatureCollection","bbox":[0,0,1,1],"features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[10,10]},"properties":{}}]})",
+        usdvector::geojson::ParseOptions{true});
+    assert(lazy.Succeeded());
+
+    auto batch = lazy.value->ReadBatch(10);
+    assert(!batch.Succeeded());
+    assert(batch.diagnostics.size() == 1);
+    assert(batch.diagnostics[0].code == usdvector::DiagnosticCode::BoundsMismatch);
+}
+
+void TestReaderBatchDoesNotPreallocateTheRequestedLimit() {
+    auto lazy = usdvector::geojson::Reader::CreateLazy(Sample());
+    assert(lazy.Succeeded());
+
+    auto batch = lazy.value->ReadBatch(std::numeric_limits<std::size_t>::max());
+    assert(batch.Succeeded() && batch.value->size() == 7);
+}
+
 void TestLazyStrictBoundsFailurePersists() {
     auto lazy = usdvector::geojson::Reader::CreateLazy(
         R"({"type":"FeatureCollection","bbox":[0,0,1,1],"features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[10,10]},"properties":{}}]})",
@@ -250,6 +289,9 @@ int main() {
         TestLazyReaderMatchesBufferedReader();
         TestLazyReaderEmptyFeatureCollection();
         TestLazyMetadataDoesNotConsumeFeatures();
+        TestReaderBatchPreservesOrderAndEndOfStream();
+        TestReaderBatchPreservesReadFailure();
+        TestReaderBatchDoesNotPreallocateTheRequestedLimit();
         TestLazyStrictBoundsFailurePersists();
         TestLazyReaderRootDiagnostics();
         TestStableDiagnostics();

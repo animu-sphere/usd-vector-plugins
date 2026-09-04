@@ -56,6 +56,14 @@ lazy run describe the complete reader-plus-authoring workflow, not the reader's
 post-open retained state. Use `time_to_open_ms`, `time_to_first_feature_ms`,
 and a dedicated reader-only process measurement when evaluating this candidate.
 
+The shared `FeatureReader` contract also provides `ReadBatch(maxFeatures)` as
+a bounded iteration helper. It consumes at most the requested number of
+features, preserves `ReadNext` ordering and diagnostics, and returns a short
+batch at end-of-stream. A zero-sized request is a successful empty batch. The
+helper establishes the batch boundary for future incremental authoring without
+requiring format-specific reader types; the current benchmark still measures
+the existing full authoring-plan path unless it is run in reader-only mode.
+
 ## Metric contract
 
 | Column | Meaning |
