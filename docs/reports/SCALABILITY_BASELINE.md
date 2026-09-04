@@ -27,6 +27,13 @@ process with `--reader-only`:
     --reader lazy --reader-only --case points --count 1000
 ```
 
+To measure bounded reader batches, add `--batch-size N`. The benchmark keeps
+the first-feature timing from `ReadNext`, then consumes the remaining features
+through `FeatureReader::ReadBatch`; `batch_count` and `max_batch_features` in
+the CSV record the observed non-empty batches after the first feature. A zero
+batch size is the compatibility mode that uses `ReadNext` for the full
+iteration.
+
 Reader-only mode still opens the source and iterates every feature so the
 feature and vertex counts remain meaningful. It discards each materialized
 feature after counting it, skips `BuildAuthoringPlan`, and leaves the
@@ -80,6 +87,8 @@ the existing full authoring-plan path unless it is run in reader-only mode.
 | `peak_rss_bytes` | Process peak working set on Windows. Run one case per process for an isolated value. |
 | `copied_bytes` | Known source handoff copies. The benchmark moves its generated source into the by-value reader API and reports zero for this handoff; any nonzero value identifies an explicit copy in the measured path. |
 | `retained_feature_bytes` | Estimated feature, geometry, and property capacity retained by the full benchmark workflow, not an allocator trace. Reader-only mode reports zero because each materialized feature is discarded after counting. |
+| `batch_count` | Number of non-empty `ReadBatch` results consumed after the first feature when `--batch-size` is enabled. Zero when there are no remaining features or compatibility mode uses `ReadNext`. |
+| `max_batch_features` | Largest non-empty `ReadBatch` result after the first feature. Zero when there are no remaining features or compatibility mode uses `ReadNext`. |
 | `usd_emission_ms` | OpenUSD-enabled builds only. |
 | `flattened_layer_bytes` | OpenUSD-enabled builds only; serialized root layer size. |
 
