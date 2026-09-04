@@ -52,6 +52,11 @@ and deterministic feature naming are provided by `usdVectorAuthoring`.
 regenerates its platform-specific `LibraryPath` before a build or package is
 used.
 
+The aggregate plugin product installs its runtime acceptance probe at
+`share/usd-vector-plugins/probes/packaged_probe.py`. The probe loads the
+registered GeoJSON format, opens the packaged fixture, and verifies the
+authored point, feature identity, typed property, and local-origin metadata.
+
 ## Runtime and compatibility
 
 The bundle targets OpenUSD `>=26.08,<27.0`, platform `cy2026`, profile `usd`.

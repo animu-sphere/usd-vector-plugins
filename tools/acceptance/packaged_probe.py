@@ -1,0 +1,79 @@
+"""Exercise the packaged GeoJSON FileFormat through OpenUSD.
+
+SPDX-License-Identifier: Apache-2.0
+"""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+from pxr import Plug, Sdf, Usd, UsdGeom
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--prefix", type=Path, required=True)
+    args = parser.parse_args()
+    prefix = args.prefix.resolve()
+    fixture = prefix / "bundles/vector-geojson/tests/fixtures/basic.geojson"
+    report = {
+        "schema": 1,
+        "component": "usd-vector-plugins",
+        "fixture": str(fixture),
+        "status": "failed",
+    }
+    try:
+        plugin = Plug.Registry().GetPluginWithName("UsdVectorGeoJsonFileFormat")
+        if not plugin or not plugin.Load():
+            raise RuntimeError("vector-geojson plugin did not load")
+        file_format = Sdf.FileFormat.FindByExtension("geojson")
+        if not file_format or file_format.formatId != "GeoJSON":
+            raise RuntimeError("vector-geojson is not registered for .geojson")
+        layer = Sdf.Layer.FindOrOpen(str(fixture))
+        stage = Usd.Stage.Open(layer) if layer else None
+        if not stage:
+            raise RuntimeError("packaged GeoJSON fixture did not open")
+
+        vector = stage.GetPrimAtPath("/Vector")
+        points = stage.GetPrimAtPath("/Vector/Features/id_point_1")
+        if not vector or not points or not points.IsA(UsdGeom.Points):
+            raise RuntimeError("GeoJSON fixture did not author the expected Points prim")
+        point_values = UsdGeom.Points(points).GetPointsAttr().Get() or []
+        if len(point_values) != 1:
+            raise RuntimeError("GeoJSON fixture authored an unexpected point count")
+        feature_id = points.GetCustomDataByKey("vector").get("featureId")
+        if feature_id != "point-1":
+            raise RuntimeError("GeoJSON fixture did not preserve its feature id")
+        properties = points.GetAttribute("vector:properties:name").Get()
+        if properties != "origin":
+            raise RuntimeError("GeoJSON fixture did not preserve its name property")
+        vector_data = vector.GetCustomDataByKey("vector")
+        if vector_data.get("format") != "GeoJSON":
+            raise RuntimeError("GeoJSON format metadata is missing")
+        if vector_data.get("localOrigin") != (0.0, 0.0, 0.0):
+            raise RuntimeError("GeoJSON local-origin metadata is incorrect")
+
+        authored = layer.ExportToString()
+        report.update({
+            "status": "passed",
+            "formatId": file_format.formatId,
+            "layerIdentifier": layer.identifier,
+            "authoredLayerDigest": "sha256:" + hashlib.sha256(authored.encode()).hexdigest(),
+            "observations": {
+                "registered": True,
+                "opened": True,
+                "pointCount": len(point_values),
+                "featureId": feature_id,
+                "propertyName": properties,
+                "localOrigin": list(vector_data["localOrigin"]),
+            },
+        })
+    except Exception as error:
+        report["error"] = str(error)
+    print(json.dumps(report, indent=2))
+    return 0 if report["status"] == "passed" else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

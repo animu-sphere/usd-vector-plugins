@@ -8,3 +8,7 @@ profile = "usd"
 
 [workspace]
 members = ["libs/*", "plugins/*"]
+
+[[workspace.install_data]]
+source = "tools/acceptance"
+destination = "share/usd-vector-plugins/probes"
