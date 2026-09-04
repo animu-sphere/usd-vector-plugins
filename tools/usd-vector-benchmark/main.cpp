@@ -395,8 +395,6 @@ Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy, bool readerOnly,
     };
     recordFeature(std::move(first.value->value()));
     if (batchSize > 0) {
-        metrics.batchCount = 1;
-        metrics.maxBatchFeatures = 1;
         while (true) {
             auto batch = reader.value->ReadBatch(batchSize);
             if (!batch.Succeeded()) {

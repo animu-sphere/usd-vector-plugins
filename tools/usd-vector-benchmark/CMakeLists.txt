@@ -33,7 +33,7 @@ if(BUILD_TESTING)
                 --reader-only --batch-size 1 --case points --count 2)
     set_tests_properties(usd-vector-benchmark-batch-smoke
         PROPERTIES PASS_REGULAR_EXPRESSION
-        "lazy,points,2,[0-9]+,2,2,[^,]+,[^,]+,0,[^,]+,[0-9]+,0,0,2,1")
+        "lazy,points,2,[0-9]+,2,2,[^,]+,[^,]+,0,[^,]+,[0-9]+,0,0,1,1")
     add_test(NAME usd-vector-benchmark-invalid-count
         COMMAND $<TARGET_FILE:usd-vector-benchmark> --case points --count invalid)
     set_tests_properties(usd-vector-benchmark-invalid-count
