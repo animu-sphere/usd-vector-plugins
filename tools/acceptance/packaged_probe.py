@@ -16,6 +16,13 @@ def open_stage(path: Path):
     return layer, Usd.Stage.Open(layer) if layer else None
 
 
+def fixture_path(fixtures: Path, name: str) -> Path:
+    path = fixtures / name
+    if not path.is_file():
+        raise RuntimeError(f"packaged fixture is missing: {path}")
+    return path
+
+
 def verify_point_stage(stage) -> None:
     vector = stage.GetPrimAtPath("/Vector")
     points = stage.GetPrimAtPath("/Vector/Features/id_point_1")
@@ -43,7 +50,7 @@ def main() -> int:
     args = parser.parse_args()
     prefix = args.prefix.resolve()
     fixtures = prefix / "bundles/vector-geojson/tests/fixtures"
-    fixture = fixtures / "basic.geojson"
+    fixture = fixture_path(fixtures, "basic.geojson")
     report = {
         "schema": 1,
         "component": "usd-vector-plugins",
@@ -62,16 +69,18 @@ def main() -> int:
             raise RuntimeError("packaged GeoJSON fixture did not open")
         verify_point_stage(stage)
 
-        json_layer, json_stage = open_stage(fixtures / "basic.json")
+        json_layer, json_stage = open_stage(fixture_path(fixtures, "basic.json"))
         if not json_stage:
             raise RuntimeError("GeoJSON-bearing JSON fixture did not open")
         verify_point_stage(json_stage)
 
-        unrelated_layer = Sdf.Layer.FindOrOpen(str(fixtures / "unrelated.json"))
+        unrelated_path = fixture_path(fixtures, "unrelated.json")
+        unrelated_layer = Sdf.Layer.FindOrOpen(str(unrelated_path))
         if unrelated_layer:
             raise RuntimeError("unrelated JSON was accepted as GeoJSON")
 
-        invalid_layer = Sdf.Layer.FindOrOpen(str(fixtures / "invalid.geojson"))
+        invalid_path = fixture_path(fixtures, "invalid.geojson")
+        invalid_layer = Sdf.Layer.FindOrOpen(str(invalid_path))
         if invalid_layer:
             raise RuntimeError("invalid GeoJSON was accepted")
 
