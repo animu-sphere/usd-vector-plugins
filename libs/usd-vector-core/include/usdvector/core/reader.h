@@ -17,7 +17,6 @@ public:
 
     Result<std::vector<Feature>> ReadBatch(std::size_t maxFeatures) {
         std::vector<Feature> batch;
-        batch.reserve(maxFeatures);
         while (batch.size() < maxFeatures) {
             Result<std::optional<Feature>> next = ReadNext();
             if (!next.Succeeded()) {

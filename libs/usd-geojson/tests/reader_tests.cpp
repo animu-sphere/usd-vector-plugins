@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <exception>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <variant>
 
@@ -175,6 +176,14 @@ void TestReaderBatchPreservesReadFailure() {
     assert(batch.diagnostics[0].code == usdvector::DiagnosticCode::BoundsMismatch);
 }
 
+void TestReaderBatchDoesNotPreallocateTheRequestedLimit() {
+    auto lazy = usdvector::geojson::Reader::CreateLazy(Sample());
+    assert(lazy.Succeeded());
+
+    auto batch = lazy.value->ReadBatch(std::numeric_limits<std::size_t>::max());
+    assert(batch.Succeeded() && batch.value->size() == 7);
+}
+
 void TestLazyStrictBoundsFailurePersists() {
     auto lazy = usdvector::geojson::Reader::CreateLazy(
         R"({"type":"FeatureCollection","bbox":[0,0,1,1],"features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[10,10]},"properties":{}}]})",
@@ -282,6 +291,7 @@ int main() {
         TestLazyMetadataDoesNotConsumeFeatures();
         TestReaderBatchPreservesOrderAndEndOfStream();
         TestReaderBatchPreservesReadFailure();
+        TestReaderBatchDoesNotPreallocateTheRequestedLimit();
         TestLazyStrictBoundsFailurePersists();
         TestLazyReaderRootDiagnostics();
         TestStableDiagnostics();
