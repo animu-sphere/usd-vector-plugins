@@ -37,6 +37,8 @@ remain available to other handlers.
 | `featureLimit=N` | Truncation metadata and deterministic ordering must be specified first. |
 | `property=name,...` | Escaping and normalization syntax need a stable design. |
 | `origin=auto|none|x,y,z` | `auto` is the only MVP precision-safe policy. |
+| `upAxis=y|z` | Direct-read stage orientation is unset by default and must be explicit when required by a host or runtime. |
+| `metersPerUnit=<positive finite number>` | Stage units are unset by default and must be explicit when required; this never converts source coordinates. |
 | `triangulate=true|false` | Polygon USD mapping requires triangulation; false has no valid MVP representation. |
 | `crs` or `targetCrs` | Reprojection belongs to explicit conversion, not implicit reads. |
 
