@@ -55,6 +55,8 @@ struct Metrics {
     std::uint64_t peakRssBytes = 0;
     std::size_t copiedBytes = 0;
     std::size_t retainedFeatureBytes = 0;
+    std::size_t batchCount = 0;
+    std::size_t maxBatchFeatures = 0;
 #if defined(USDVECTOR_ENABLE_OPENUSD)
     std::optional<double> usdEmissionMilliseconds;
     std::optional<std::size_t> flattenedLayerBytes;
@@ -349,7 +351,8 @@ std::string DiagnosticSummary(const std::vector<usdvector::Diagnostic>& diagnost
     return usdvector::DiagnosticCodeString(diagnostics.front().code);
 }
 
-Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy, bool readerOnly) {
+Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy, bool readerOnly,
+                std::size_t batchSize) {
     Metrics metrics;
     metrics.reader = lazy ? "lazy" : "buffered";
     metrics.name = benchmarkCase.name;
@@ -391,15 +394,37 @@ Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy, bool readerOnly) 
         }
     };
     recordFeature(std::move(first.value->value()));
-    while (true) {
-        auto next = reader.value->ReadNext();
-        if (!next.Succeeded()) {
-            throw std::runtime_error("benchmark reader failed during iteration");
+    if (batchSize > 0) {
+        metrics.batchCount = 1;
+        metrics.maxBatchFeatures = 1;
+        while (true) {
+            auto batch = reader.value->ReadBatch(batchSize);
+            if (!batch.Succeeded()) {
+                throw std::runtime_error(
+                    "benchmark reader failed during batch iteration");
+            }
+            if (batch.value->empty()) {
+                break;
+            }
+            ++metrics.batchCount;
+            if (batch.value->size() > metrics.maxBatchFeatures) {
+                metrics.maxBatchFeatures = batch.value->size();
+            }
+            for (auto& feature : *batch.value) {
+                recordFeature(std::move(feature));
+            }
         }
-        if (!next.value.has_value() || !next.value->has_value()) {
-            break;
+    } else {
+        while (true) {
+            auto next = reader.value->ReadNext();
+            if (!next.Succeeded()) {
+                throw std::runtime_error("benchmark reader failed during iteration");
+            }
+            if (!next.value.has_value() || !next.value->has_value()) {
+                break;
+            }
+            recordFeature(std::move(next.value->value()));
         }
-        recordFeature(std::move(next.value->value()));
     }
 
     auto metadata = reader.value->ReadMetadata();
@@ -444,7 +469,8 @@ Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy, bool readerOnly) 
 bool WriteHeader(std::ostream& output) {
     output << "reader,case,requested_count,source_bytes,features,vertices,parse_ms,"
               "time_to_first_feature_ms,authoring_plan_ms,time_to_open_ms,"
-              "peak_rss_bytes,copied_bytes,retained_feature_bytes";
+              "peak_rss_bytes,copied_bytes,retained_feature_bytes,batch_count,"
+              "max_batch_features";
 #if defined(USDVECTOR_ENABLE_OPENUSD)
     output << ",usd_emission_ms,flattened_layer_bytes";
 #endif
@@ -460,7 +486,8 @@ bool WriteMetrics(std::ostream& output, const Metrics& metrics) {
            << metrics.parseMilliseconds << ',' << metrics.firstFeatureMilliseconds
            << ',' << metrics.authoringMilliseconds << ','
            << metrics.timeToOpenMilliseconds << ',' << metrics.peakRssBytes << ','
-           << metrics.copiedBytes << ',' << metrics.retainedFeatureBytes;
+           << metrics.copiedBytes << ',' << metrics.retainedFeatureBytes << ','
+           << metrics.batchCount << ',' << metrics.maxBatchFeatures;
 #if defined(USDVECTOR_ENABLE_OPENUSD)
     output << ',';
     if (metrics.usdEmissionMilliseconds.has_value()) {
@@ -496,7 +523,7 @@ std::vector<BenchmarkCase> Cases(const std::optional<std::string>& selected,
 }
 
 void PrintUsage() {
-    std::cerr << "usage: usd-vector-benchmark [--reader MODE] [--reader-only] [--case NAME] [--count N] [--output FILE]\n"
+    std::cerr << "usage: usd-vector-benchmark [--reader MODE] [--reader-only] [--batch-size N] [--case NAME] [--count N] [--output FILE]\n"
                  "readers: buffered, lazy\n"
                  "cases: points, lines, large-polygon, small-polygons, "
                  "property-heavy, large-coordinates\n";
@@ -507,6 +534,7 @@ void PrintUsage() {
 int main(int argc, char** argv) {
     bool lazy = false;
     bool readerOnly = false;
+    std::size_t batchSize = 0;
     std::optional<std::string> selectedCase;
     std::size_t count = 1000;
     std::optional<std::string> outputPath;
@@ -521,6 +549,11 @@ int main(int argc, char** argv) {
             lazy = reader == "lazy";
         } else if (argument == "--reader-only") {
             readerOnly = true;
+        } else if (argument == "--batch-size" && index + 1 < argc) {
+            if (!ParseCount(argv[++index], batchSize)) {
+                std::cerr << "--batch-size must be a positive integer\n";
+                return 2;
+            }
         } else if (argument == "--case" && index + 1 < argc) {
             selectedCase = argv[++index];
         } else if (argument == "--count" && index + 1 < argc) {
@@ -560,7 +593,8 @@ int main(int argc, char** argv) {
             return 1;
         }
         for (const auto& benchmarkCase : Cases(selectedCase, count)) {
-            const Metrics metrics = Measure(benchmarkCase, lazy, readerOnly);
+            const Metrics metrics =
+                Measure(benchmarkCase, lazy, readerOnly, batchSize);
             if (!WriteMetrics(*output, metrics)) {
                 std::cerr << "could not write benchmark output\n";
                 return 1;
