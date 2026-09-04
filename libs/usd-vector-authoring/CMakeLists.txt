@@ -34,7 +34,12 @@ target_link_libraries(usd-vector-authoring
 )
 
 if(USDVECTOR_ENABLE_OPENUSD)
-    find_package(pxr CONFIG REQUIRED)
+    if(MSVC)
+        target_compile_definitions(usd-vector-authoring PRIVATE NOMINMAX)
+    endif()
+    if(NOT TARGET pxr::usdGeom AND NOT TARGET usdGeom AND NOT PXR_LIBRARIES)
+        find_package(pxr CONFIG REQUIRED)
+    endif()
     target_sources(usd-vector-authoring PRIVATE src/usd_authoring.cpp)
     target_compile_definitions(usd-vector-authoring PRIVATE USDVECTOR_ENABLE_OPENUSD=1)
     if(PXR_INCLUDE_DIRS)
