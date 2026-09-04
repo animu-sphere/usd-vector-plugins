@@ -29,6 +29,40 @@ const char* Sample() {
     })json";
 }
 
+class DiagnosticReader final : public usdvector::FeatureReader {
+public:
+    usdvector::Result<usdvector::DatasetMetadata> ReadMetadata() override {
+        return usdvector::Result<usdvector::DatasetMetadata>::Success(
+            usdvector::DatasetMetadata{});
+    }
+
+    usdvector::Result<std::optional<usdvector::Feature>> ReadNext() override {
+        if (nextFeature_ == 2) {
+            return usdvector::Result<std::optional<usdvector::Feature>>::Success(
+                std::nullopt);
+        }
+        ++nextFeature_;
+        auto result =
+            usdvector::Result<std::optional<usdvector::Feature>>::Success(
+                std::optional<usdvector::Feature>{usdvector::Feature{}});
+        result.diagnostics.push_back(
+            {usdvector::DiagnosticCode::ForeignMemberLimit,
+             usdvector::Severity::Warning,
+             "test warning",
+             std::nullopt,
+             std::nullopt,
+             std::nullopt,
+             std::nullopt,
+             std::nullopt,
+             std::nullopt,
+             std::nullopt});
+        return result;
+    }
+
+private:
+    std::size_t nextFeature_ = 0;
+};
+
 void TestFeatureCollectionAndProperties() {
     auto result = usdvector::geojson::Reader::Create(Sample());
     assert(result.Succeeded());
@@ -184,6 +218,15 @@ void TestReaderBatchDoesNotPreallocateTheRequestedLimit() {
     assert(batch.Succeeded() && batch.value->size() == 7);
 }
 
+void TestReaderBatchPreservesSuccessfulDiagnostics() {
+    DiagnosticReader reader;
+    auto batch = reader.ReadBatch(2);
+    assert(batch.Succeeded() && batch.value->size() == 2);
+    assert(batch.diagnostics.size() == 2);
+    assert(batch.diagnostics[0].code == usdvector::DiagnosticCode::ForeignMemberLimit);
+    assert(batch.diagnostics[1].code == usdvector::DiagnosticCode::ForeignMemberLimit);
+}
+
 void TestLazyStrictBoundsFailurePersists() {
     auto lazy = usdvector::geojson::Reader::CreateLazy(
         R"({"type":"FeatureCollection","bbox":[0,0,1,1],"features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[10,10]},"properties":{}}]})",
@@ -292,6 +335,7 @@ int main() {
         TestReaderBatchPreservesOrderAndEndOfStream();
         TestReaderBatchPreservesReadFailure();
         TestReaderBatchDoesNotPreallocateTheRequestedLimit();
+        TestReaderBatchPreservesSuccessfulDiagnostics();
         TestLazyStrictBoundsFailurePersists();
         TestLazyReaderRootDiagnostics();
         TestStableDiagnostics();
