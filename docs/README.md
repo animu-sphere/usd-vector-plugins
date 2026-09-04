@@ -2,11 +2,12 @@
 
 This documentation is organized by responsibility so current contracts,
 procedures, and future work do not drift into one another. The repository is
-at Milestone 4 plus active M5 scalability work: `usdVectorCore`, the buffered
-and cursor-based lazy `usdGeoJson` readers, `usdVectorAuthoring`, and the
-`vector-geojson` FileFormat plugin are implemented. The plugin vertical slice
-has been verified through OpenStrata L0-L5; M5 baseline measurement and
-incremental lazy materialization evidence are available.
+on the v0.1.x stabilization line with active M5 scalability work:
+`usdVectorCore`, the buffered and cursor-based lazy `usdGeoJson` readers,
+`usdVectorAuthoring`, and the `vector-geojson` FileFormat plugin are
+implemented. The plugin vertical slice has been verified through OpenStrata
+L0-L5; M5 baseline measurement and incremental lazy materialization evidence
+are available.
 
 | Category | Answers | Start here |
 | --- | --- | --- |
@@ -17,6 +18,14 @@ incremental lazy materialization evidence are available.
 | [roadmap/](roadmap/) | What will be implemented and in which order. | [README.md](roadmap/README.md), [IMPLEMENTATION_PLAN.md](roadmap/IMPLEMENTATION_PLAN.md) |
 | [reports/](reports/) | Measured acceptance evidence and reproducibility records. | [SCALABILITY_BASELINE.md](reports/SCALABILITY_BASELINE.md) |
 | [releases/](releases/) | Immutable records for tagged releases. | [README.md](releases/README.md) |
+
+The roadmap files have distinct roles:
+
+- [roadmap/README.md](roadmap/README.md) records current milestone status.
+- [roadmap/IMPLEMENTATION_PLAN.md](roadmap/IMPLEMENTATION_PLAN.md) is the
+   canonical future sequence and release strategy.
+- [roadmap/FORMAT_EXPANSION.md](roadmap/FORMAT_EXPANSION.md) defines the gates
+   a second format must pass.
 
 ## The one-sentence version
 
@@ -35,6 +44,9 @@ GeoJSON -> usdGeoJson -> VectorDataset -> usdVectorAuthoring -> OpenUSD
 ```
 
 ## Reading order
+
+Users should start with the root [README](../README.md), then use the build and
+install guides. Contributors should follow this order:
 
 1. [design/DESIGN_POLICY.md](design/DESIGN_POLICY.md) - standing scope and
    engineering rules.

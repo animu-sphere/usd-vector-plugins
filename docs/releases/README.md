@@ -32,5 +32,9 @@ release record. Changes after the tag belong to the next release.
 | Version | Theme |
 | --- | --- |
 | v0.1.0 | GeoJSON vertical slice and deterministic OpenUSD mapping |
-| v0.2.0 | M5 scalability evidence and bounded-memory improvement where justified |
-| v0.3.0 | Indexed-source experiment and FlatGeobuf vertical slice |
+| v0.1.x | GeoJSON stabilization, diagnostics, tests, documentation, and artifact reproducibility |
+| v0.2.0 | Architecture maturity through M5, runtime composition, shared-format validation, or a selective-read contract |
+| v0.3.x and later | Production FlatGeobuf, indexed reads, selective composition, or other evidence-backed expansion |
+
+The roadmap defines the exact release gate; format count alone does not justify
+a minor release.

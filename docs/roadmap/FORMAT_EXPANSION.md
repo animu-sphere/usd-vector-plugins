@@ -1,50 +1,61 @@
 # Format expansion
 
-New formats enter only after the shared vector model and USD mapping are
-proven by the GeoJSON MVP. A format adapts to `usdVectorCore`; it does not copy
-the GeoJSON-to-USD path.
+This document defines how another vector format enters the project. Delivery
+order and release gates belong to [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
+A format adapts to `usdVectorCore`; it does not copy the GeoJSON-to-USD path.
 
-## Phase 1: GeoJSON
+## Compatibility baseline: GeoJSON
 
 Establish geometry, properties, identifiers, diagnostics, precision policy,
 and the complete FileFormat integration. Correctness and contract quality take
 priority over whole-document parsing performance in the first implementation.
 
-Entry gate: repository skeleton and core contracts.
+The v0.1.0 vertical slice is the compatibility baseline. Stabilization work
+must preserve its public mapping while closing documented edge cases.
 
-Exit gate: the MVP gates in [README.md](README.md).
+## Next validation format: FlatGeobuf
 
-## Phase 2: FlatGeobuf
+FlatGeobuf is selected to test the architecture, not to increase the format
+count. Its binary representation, large-dataset use cases, spatial index, and
+range-read behavior apply pressure that GeoJSON does not.
 
-Validate binary parsing, spatial indexes, bounded reads, and resolver-backed
-partial access. This phase is where the streaming-compatible interfaces must
-demonstrate real bounded-memory behavior.
+Entry gates:
 
-Entry gate: stable feature-reader and authoring APIs plus measured GeoJSON
-memory and open-time baselines.
+1. GeoJSON stabilization preserves the v0.1.x compatibility contracts.
+2. Feature-reader and authoring APIs are stable under measured M5 workloads.
+3. Runtime composition has validated resolver, metadata, and placement
+   boundaries, or has identified the contract changes needed before a second
+   format enters.
 
-## Phase 3: Shapefile
+Implementation order:
 
-Define a multi-file asset contract for `.shp`, `.shx`, `.dbf`, `.prj`, and
-optional sidecars. Every sidecar is resolved through the active resolver;
-filesystem sibling assumptions are not allowed in shared code.
+1. Sequential FlatGeobuf reader.
+2. Mapping into the shared vector model.
+3. Reuse of the shared USD authoring path.
+4. Comparative benchmark.
+5. Index-aware range-read investigation.
+6. Spatially selective materialization.
 
-Entry gate: resolver contract supports deterministic related-asset resolution
-and missing-sidecar diagnostics.
+The indexed contract is derived after the sequential vertical slice. The first
+implementation does not need to solve every partial-read use case.
 
-## Phase 4: GeoPackage
+## Admission rules
 
-Introduce container and layer selection, SQLite dependency policy, and spatial
-metadata mapping. A GeoPackage can contain several vector layers, so stable
-file-format arguments for layer identity are required before implementation.
+- A reader produces project-owned vector semantics and diagnostics.
+- Format parser types do not leak into `usdVectorCore` or authoring.
+- The existing deterministic USD mapping is reused.
+- Byte acquisition remains transport-independent and resolver-compatible.
+- Reprojection and placement remain explicit upper-layer policies.
+- New dependencies receive an ownership, packaging, and license review.
+- Capability claims include semantic tests and measured evidence where scale
+  or partial access is part of the claim.
 
-Entry gate: layer-selection arguments and cache/layer identity are specified.
+## Deferred candidates
 
-## Deferred cross-format work
+Shapefile, GeoPackage, and other formats remain candidates rather than planned
+phases. Their contracts are defined only when a concrete use case reaches the
+admission gates. Shapefile would require resolver-safe sidecar handling;
+GeoPackage would require explicit container and layer identity.
 
-- Reprojection is considered in `usd-vector-convert`, not each reader.
-- Spatial tiling and payload generation follow measured large-dataset needs.
-- GDAL/OGR may be evaluated as an optional backend or oracle, never introduced
-  as an unexamined mandatory dependency.
-- Write support receives a separate preservation and round-trip design after
-  read behavior is stable.
+Reprojection, spatial tiling, payload generation, write support, and broad
+GDAL/OGR integration remain separate deferred work.
