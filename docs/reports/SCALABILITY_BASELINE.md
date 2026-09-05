@@ -71,6 +71,15 @@ helper establishes the batch boundary for future incremental authoring without
 requiring format-specific reader types; the current benchmark still measures
 the existing full authoring-plan path unless it is run in reader-only mode.
 
+The shared authoring boundary also provides `FeaturePlanBuilder`. A caller
+that has established complete source bounds can feed one feature at a time
+from those batches and route each completed plan to its own sink. The builder
+retains only naming state and diagnostics, so it does not reintroduce the
+whole feature vector or plan vector at that boundary. `BuildAuthoringPlan`
+continues to provide the existing vector-based behavior; the GeoJSON plugin
+and the benchmark's default authoring path still use that compatibility path
+until a two-pass or reopenable source workflow is measured and adopted.
+
 ## Metric contract
 
 | Column | Meaning |

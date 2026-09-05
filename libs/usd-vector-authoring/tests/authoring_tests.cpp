@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <utility>
 #include <variant>
 
 namespace {
@@ -83,6 +84,53 @@ void TestNamesAndPropertiesAreDeterministic() {
     assert(std::holds_alternative<bool>(
         result.value->features[0].properties.at("road_name").value));
     assert(result.diagnostics.size() == 3);
+}
+
+void TestFeaturePlanBuilderPreservesBatchOrderAndMapping() {
+    usdvector::Feature first;
+    first.id = usdvector::FeatureId{"same"};
+    first.geometry = usdvector::Geometry{usdvector::Point{{0.0, 0.0}}};
+    usdvector::Feature second;
+    second.id = usdvector::FeatureId{"same"};
+    second.geometry = usdvector::Geometry{usdvector::Point{{2.0, 2.0}}};
+
+    usdvector::Bounds sourceBounds;
+    sourceBounds.Include({0.0, 0.0});
+    sourceBounds.Include({2.0, 2.0});
+    std::vector<usdvector::authoring::FeaturePlan> streamed;
+    usdvector::authoring::FeaturePlanBuilder builder(
+        usdvector::DatasetMetadata{"GeoJSON", std::nullopt, std::nullopt,
+                                   std::nullopt, 2},
+        sourceBounds,
+        [&streamed](usdvector::authoring::FeaturePlan&& feature) {
+            streamed.push_back(std::move(feature));
+        });
+    builder.Add(first);
+    builder.Add(second);
+    const auto streamedResult = builder.Finish();
+
+    assert(streamedResult.Succeeded());
+    assert(streamed.size() == 2);
+    assert(streamed[0].name == "id_same");
+    assert(streamed[1].name == "id_same_2");
+    assert(streamed[0].geometry.points[0].x == -1.0);
+    assert(streamed[1].geometry.points[0].x == 1.0);
+    assert(streamedResult.diagnostics.size() == 1);
+    assert(streamedResult.diagnostics[0].code ==
+           usdvector::DiagnosticCode::DuplicateFeatureId);
+
+    const auto buffered = usdvector::authoring::BuildAuthoringPlan(
+        usdvector::DatasetMetadata{"GeoJSON", std::nullopt, std::nullopt,
+                                   std::nullopt, 2},
+        {first, second});
+    assert(buffered.Succeeded());
+    assert(buffered.value->features.size() == streamed.size());
+    assert(buffered.value->features[0].name == streamed[0].name);
+    assert(buffered.value->features[1].name == streamed[1].name);
+    assert(buffered.value->features[0].geometry.points[0].x ==
+           streamed[0].geometry.points[0].x);
+    assert(buffered.value->features[1].geometry.points[0].x ==
+           streamed[1].geometry.points[0].x);
 }
 
 void TestUsdPropertyMappingUsesTypedValuesAndCanonicalFallback() {
@@ -258,6 +306,22 @@ void TestStrictDiagnosticsAndDeclaredBounds() {
     assert(strictBounds.diagnostics[0].code ==
            usdvector::DiagnosticCode::BoundsMismatch);
     assert(strictBounds.diagnostics[0].severity == usdvector::Severity::Error);
+
+    std::vector<usdvector::authoring::FeaturePlan> strictStreamed;
+    const auto sourceBounds =
+        usdvector::ComputeBounds(std::vector<usdvector::Feature>{first});
+    usdvector::authoring::FeaturePlanBuilder strictBuilder(
+        usdvector::DatasetMetadata{"GeoJSON", std::nullopt, std::nullopt,
+                                   std::nullopt, 1},
+        sourceBounds,
+        [&strictStreamed](usdvector::authoring::FeaturePlan&& feature) {
+            strictStreamed.push_back(std::move(feature));
+        },
+        usdvector::authoring::AuthoringOptions{true});
+    strictBuilder.Add(first);
+    const auto strictStreamedResult = strictBuilder.Finish();
+    assert(!strictStreamedResult.Succeeded());
+    assert(strictStreamed.empty());
 }
 
 void TestDirectTriangulationRejectsNonFiniteCoordinates() {
@@ -293,6 +357,7 @@ int main() {
     TestLocalOriginPreservesSmallDifferences();
     TestPolygonHoleTriangulation();
     TestNamesAndPropertiesAreDeterministic();
+    TestFeaturePlanBuilderPreservesBatchOrderAndMapping();
     TestUsdPropertyMappingUsesTypedValuesAndCanonicalFallback();
     TestMvpGeometryPlans();
     TestInvalidPolygonTopologyIsRejected();

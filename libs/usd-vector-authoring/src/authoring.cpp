@@ -342,76 +342,109 @@ Result<AuthoringPlan> BuildAuthoringPlan(
     const Coordinate sourceOrigin = plan.sourceBounds.Center();
     plan.localOrigin = {sourceOrigin.x, sourceOrigin.y, sourceOrigin.z};
 
-    std::vector<Diagnostic> diagnostics;
+    FeaturePlanBuilder builder(
+        metadata, plan.sourceBounds,
+        [&plan](FeaturePlan&& feature) {
+            plan.features.push_back(std::move(feature));
+        },
+        options);
+    for (const Feature& feature : features) {
+        builder.Add(feature);
+    }
+    const auto result = builder.Finish();
+    if (!result.Succeeded()) {
+        return Result<AuthoringPlan>::Failure(std::move(result.diagnostics));
+    }
+    Result<AuthoringPlan> output = Result<AuthoringPlan>::Success(std::move(plan));
+    output.diagnostics = std::move(result.diagnostics);
+    return output;
+}
+
+FeaturePlanBuilder::FeaturePlanBuilder(const DatasetMetadata& metadata,
+                                       const Bounds& sourceBounds,
+                                       FeaturePlanSink sink,
+                                       const AuthoringOptions& options)
+        : sourceBounds_(sourceBounds),
+      sink_(std::move(sink)),
+      options_(options) {
+    const Coordinate sourceOrigin = sourceBounds_.Center();
+    localOrigin_ = {sourceOrigin.x, sourceOrigin.y, sourceOrigin.z};
+
     if (metadata.declaredBounds.has_value() &&
-        !BoundsEqual(*metadata.declaredBounds, plan.sourceBounds)) {
-        diagnostics.push_back({DiagnosticCode::BoundsMismatch,
-                               options.strict ? Severity::Error : Severity::Warning,
-                               "declared bounds disagree with computed bounds",
-                               std::nullopt,
-                               std::nullopt,
-                               std::nullopt,
-                               std::nullopt,
-                               std::nullopt,
-                               std::nullopt,
-                               std::nullopt});
+        !BoundsEqual(*metadata.declaredBounds, sourceBounds_)) {
+        diagnostics_.push_back(
+            {DiagnosticCode::BoundsMismatch,
+             options_.strict ? Severity::Error : Severity::Warning,
+             "declared bounds disagree with computed bounds",
+             std::nullopt,
+             std::nullopt,
+             std::nullopt,
+             std::nullopt,
+             std::nullopt,
+             std::nullopt,
+             std::nullopt});
+    }
+}
+
+void FeaturePlanBuilder::Add(const Feature& feature) {
+    const std::size_t featureIndex = nextFeatureIndex_++;
+    const auto validation =
+        ValidateGeometry(feature.geometry, ValidationOptions{options_.strict});
+    if (!validation.empty()) {
+        for (Diagnostic diagnostic : validation) {
+            diagnostics_.push_back(
+                FeatureDiagnostic(std::move(diagnostic), featureIndex, feature));
+        }
+        return;
     }
 
-    std::set<std::string> usedFeatureNames;
-    for (std::size_t featureIndex = 0; featureIndex < features.size(); ++featureIndex) {
-        const Feature& feature = features[featureIndex];
-        const auto validation = ValidateGeometry(
-            feature.geometry, ValidationOptions{options.strict});
-        if (!validation.empty()) {
-            for (Diagnostic diagnostic : validation) {
-                diagnostics.push_back(
-                    FeatureDiagnostic(std::move(diagnostic), featureIndex, feature));
-            }
-            continue;
+    if (feature.declaredBounds.has_value() &&
+        !BoundsEqual(*feature.declaredBounds, ComputeBounds(feature.geometry))) {
+        diagnostics_.push_back(
+            BoundsDiagnostic(featureIndex, feature, options_.strict));
+        if (options_.strict) {
+            return;
         }
-
-        if (feature.declaredBounds.has_value() &&
-            !BoundsEqual(*feature.declaredBounds,
-                         ComputeBounds(feature.geometry))) {
-            diagnostics.push_back(
-                BoundsDiagnostic(featureIndex, feature, options.strict));
-        }
-
-        auto geometry = MakeGeometryPlan(feature.geometry, plan.localOrigin);
-        if (!geometry.Succeeded()) {
-            for (Diagnostic diagnostic : geometry.diagnostics) {
-                diagnostics.push_back(
-                    FeatureDiagnostic(std::move(diagnostic), featureIndex, feature));
-            }
-            continue;
-        }
-        if (HasInvalidLocalCoordinates(*geometry.value)) {
-            diagnostics.push_back(PrecisionDiagnostic(featureIndex, feature));
-            continue;
-        }
-
-        FeaturePlan featurePlan;
-        featurePlan.sourceId = feature.id;
-        featurePlan.name = UniqueName(
-            feature.id.has_value() ? MakeFeatureName(*feature.id)
-                                   : MakeFeatureName(featureIndex),
-            usedFeatureNames, diagnostics, featureIndex, feature, options.strict);
-        featurePlan.geometry = std::move(*geometry.value);
-        featurePlan.foreignMembers = feature.foreignMembers;
-        NormalizeProperties(feature.properties, featurePlan, diagnostics,
-                            featureIndex, feature);
-        plan.features.push_back(std::move(featurePlan));
     }
 
+    auto geometry = MakeGeometryPlan(feature.geometry, localOrigin_);
+    if (!geometry.Succeeded()) {
+        for (Diagnostic diagnostic : geometry.diagnostics) {
+            diagnostics_.push_back(
+                FeatureDiagnostic(std::move(diagnostic), featureIndex, feature));
+        }
+        return;
+    }
+    if (HasInvalidLocalCoordinates(*geometry.value)) {
+        diagnostics_.push_back(PrecisionDiagnostic(featureIndex, feature));
+        return;
+    }
+
+    FeaturePlan featurePlan;
+    featurePlan.sourceId = feature.id;
+    featurePlan.name = UniqueName(
+        feature.id.has_value() ? MakeFeatureName(*feature.id)
+                               : MakeFeatureName(featureIndex),
+        usedFeatureNames_, diagnostics_, featureIndex, feature, options_.strict);
+    featurePlan.geometry = std::move(*geometry.value);
+    featurePlan.foreignMembers = feature.foreignMembers;
+    NormalizeProperties(feature.properties, featurePlan, diagnostics_, featureIndex,
+                        feature);
+    if (sink_) {
+        sink_(std::move(featurePlan));
+    }
+}
+
+Result<std::monostate> FeaturePlanBuilder::Finish() {
     const bool hasErrors = std::any_of(
-        diagnostics.begin(), diagnostics.end(), [](const Diagnostic& diagnostic) {
+        diagnostics_.begin(), diagnostics_.end(), [](const Diagnostic& diagnostic) {
             return diagnostic.severity == Severity::Error;
         });
     if (hasErrors) {
-        return Result<AuthoringPlan>::Failure(std::move(diagnostics));
+        return Result<std::monostate>::Failure(std::move(diagnostics_));
     }
-    Result<AuthoringPlan> result = Result<AuthoringPlan>::Success(std::move(plan));
-    result.diagnostics = std::move(diagnostics);
+    Result<std::monostate> result = Result<std::monostate>::Success({});
+    result.diagnostics = std::move(diagnostics_);
     return result;
 }
 

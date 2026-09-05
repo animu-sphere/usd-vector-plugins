@@ -6,8 +6,10 @@
 #include "usdvector/authoring/triangulation.h"
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <variant>
 #include <vector>
@@ -57,6 +59,27 @@ struct AuthoringPlan {
 
 struct AuthoringOptions {
     bool strict = false;
+};
+
+using FeaturePlanSink = std::function<void(FeaturePlan&&)>;
+
+class FeaturePlanBuilder {
+public:
+    FeaturePlanBuilder(const DatasetMetadata& metadata,
+                       const Bounds& sourceBounds, FeaturePlanSink sink,
+                       const AuthoringOptions& options = {});
+
+    void Add(const Feature& feature);
+    Result<std::monostate> Finish();
+
+private:
+    Bounds sourceBounds_;
+    LocalCoordinate localOrigin_;
+    FeaturePlanSink sink_;
+    AuthoringOptions options_;
+    std::set<std::string> usedFeatureNames_;
+    std::vector<Diagnostic> diagnostics_;
+    std::size_t nextFeatureIndex_ = 0;
 };
 
 Result<AuthoringPlan> BuildAuthoringPlan(

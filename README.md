@@ -47,7 +47,7 @@ template and verified against the pinned runtime.
 | M3 | OpenUSD authoring, triangulation, local-origin metadata | done |
 | M4 | FileFormat registration, `ArAsset`, arguments, integration tests | done: OpenStrata L0-L5 verified |
 | M5 | Scalability baseline and evidence-led bounded-memory improvements | in progress: baseline, cursor-based lazy materialization, and shared bounded batches |
-| M6 | Runtime composition validation with `usd-geospatial-runtime` | planned |
+| M6 | Runtime composition validation with `usd-geospatial-runtime` | in progress: packaged local-runtime probe; external composition pending |
 | M7 | FlatGeobuf architecture validation | deferred |
 | M8 | Indexed partial-read and selective-composition contract | deferred |
 
