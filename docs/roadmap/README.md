@@ -12,7 +12,7 @@ against acceptance evidence, not directory presence or format count.
 | M2 | `usdGeoJson`: FeatureCollection, all MVP geometries, properties, fixtures | implemented |
 | M3 | `usdVectorAuthoring`: Points, Curves, Mesh triangulation, metadata, origin | implemented |
 | M4 | `vector-geojson`: registration, ArAsset adapter, arguments, integration tests | implemented: OpenStrata L0-L5 verified |
-| M5 | Scalability measurement and evidence-led streaming improvements | in progress: baseline, cursor-based lazy materialization, and shared bounded batches |
+| M5 | Scalability measurement and evidence-led streaming improvements | in progress: baseline, lazy materialization, shared bounded batches, and bounded authoring plans |
 | M6 | Runtime composition validation with `usd-geospatial-runtime` | in progress: packaged local-runtime probe; external composition pending |
 | M7 | FlatGeobuf as a format-independent architecture validation | deferred |
 | M8 | Indexed partial-read and selective-composition contract | deferred |

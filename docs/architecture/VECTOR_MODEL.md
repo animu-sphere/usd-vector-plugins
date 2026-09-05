@@ -27,6 +27,15 @@ diagnostics as the buffered factory. After successful end-of-stream, the lazy
 reader releases its source text and cursor state while retaining metadata and
 diagnostics for subsequent reads.
 
+For downstream bounded processing, `usdVectorAuthoring` also provides a
+`FeaturePlanBuilder`. The caller supplies the complete source bounds first,
+then adds features as they arrive from bounded reader batches. The builder
+computes the deterministic local origin once, preserves source order and
+feature naming across calls, and sends each completed `FeaturePlan` to a
+caller-owned sink without retaining the input `Feature` values or completed
+plans. `BuildAuthoringPlan` remains the compatibility convenience API for
+callers that already have a complete feature vector.
+
 ## 2. Geometry
 
 The MVP model supports Point, MultiPoint, LineString, MultiLineString, Polygon,
