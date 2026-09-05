@@ -48,6 +48,10 @@ void TestStagePolicyOverrides() {
     ReadOptions exponent;
     assert(Accepts({{"metersPerUnit", "1e-3"}}, exponent));
     assert(*exponent.stage.metersPerUnit == 0.001);
+
+    ReadOptions fraction;
+    assert(Accepts({{"metersPerUnit", ".5"}}, fraction));
+    assert(*fraction.stage.metersPerUnit == 0.5);
 }
 
 void TestStagePolicyRejection() {
@@ -62,6 +66,12 @@ void TestStagePolicyRejection() {
     assert(Rejects({{"metersPerUnit", "1 "}}));
     assert(Rejects({{"metersPerUnit", " 1"}}));
     assert(Rejects({{"metersPerUnit", "1meter"}}));
+    assert(Rejects({{"metersPerUnit", "0x10"}}));
+    assert(Rejects({{"metersPerUnit", "0X1P3"}}));
+    assert(Rejects({{"metersPerUnit", "+1"}}));
+    assert(Rejects({{"metersPerUnit", "1e"}}));
+    assert(Rejects({{"metersPerUnit", "1e+"}}));
+    assert(Rejects({{"metersPerUnit", "."}}));
     assert(Rejects({{"metersPerUnit", ""}}));
     assert(Rejects({{"upAxis", "z"}, {"unknown", "value"}}));
 }

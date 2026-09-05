@@ -25,9 +25,10 @@ dataset metadata only and does not author feature prims.
 `upAxis` and `metersPerUnit` are stage declarations, not conversions. Omitting
 them leaves both stage values unauthored so a composing runtime supplies its
 own policy; supplying them authors the requested value and nothing else.
-`metersPerUnit` accepts a decimal or exponent spelling of a positive finite
-number and rejects zero, negatives, infinities, and NaN. The argument string is
-carried verbatim in layer identity, so `metersPerUnit=1` and
+`metersPerUnit` accepts an unsigned decimal spelling with an optional decimal
+point and exponent, such as `1`, `0.001`, or `1e-3`. Signed, hexadecimal,
+infinity, NaN, zero, negative, and non-numeric spellings are errors. The
+argument string is carried verbatim in layer identity, so `metersPerUnit=1` and
 `metersPerUnit=1.0` identify distinct layers with identical content.
 
 ## 2. Extension handling

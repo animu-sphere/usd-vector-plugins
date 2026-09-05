@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include <cmath>
+#include <cstddef>
 #include <locale>
 #include <sstream>
 #include <string>
@@ -23,9 +24,41 @@ bool ParseBoolean(const std::string& value, bool& result) {
     return false;
 }
 
+std::size_t SkipDigits(const std::string& value, std::size_t index) {
+    while (index < value.size() &&
+           std::isdigit(static_cast<unsigned char>(value[index]))) {
+        ++index;
+    }
+    return index;
+}
+
+bool IsDecimalSpelling(const std::string& value) {
+    std::size_t index = SkipDigits(value, 0);
+    std::size_t digits = index;
+    if (index < value.size() && value[index] == '.') {
+        const std::size_t fraction = SkipDigits(value, index + 1);
+        digits += fraction - index - 1;
+        index = fraction;
+    }
+    if (digits == 0) {
+        return false;
+    }
+    if (index == value.size()) {
+        return true;
+    }
+    if (value[index] != 'e' && value[index] != 'E') {
+        return false;
+    }
+    ++index;
+    if (index < value.size() && (value[index] == '+' || value[index] == '-')) {
+        ++index;
+    }
+    const std::size_t exponent = SkipDigits(value, index);
+    return exponent > index && exponent == value.size();
+}
+
 bool ParsePositiveFinite(const std::string& value, double& result) {
-    if (value.empty() ||
-        std::isspace(static_cast<unsigned char>(value.front()))) {
+    if (!IsDecimalSpelling(value)) {
         return false;
     }
     std::istringstream stream(value);

@@ -16,13 +16,17 @@ def open_stage(path: Path):
     return layer, Usd.Stage.Open(layer) if layer else None
 
 
-def is_rejected(path: Path, arguments: dict | None = None) -> bool:
-    """A refusal reaches Python either as a null layer or as a posted error."""
+def is_rejected(path: Path, code: str, arguments: dict | None = None) -> bool:
+    """A refusal reaches Python either as a null layer or as a posted error.
+    Only an error carrying the expected diagnostic code counts as a refusal;
+    anything else is re-raised so an unrelated failure is not read as one."""
     try:
         if arguments is None:
             return not Sdf.Layer.FindOrOpen(str(path))
         return not Sdf.Layer.FindOrOpen(str(path), arguments)
-    except Tf.ErrorException:
+    except Tf.ErrorException as error:
+        if f"{code}:" not in str(error):
+            raise
         return True
 
 
@@ -79,8 +83,9 @@ def verify_stage_policy(fixture: Path) -> dict:
     if explicit_layer.identifier == layer.identifier:
         raise RuntimeError("stage-policy arguments did not change layer identity")
 
-    for rejected in ({"upAxis": "x"}, {"metersPerUnit": "0"}, {"metersPerUnit": "far"}):
-        if not is_rejected(fixture, rejected):
+    for rejected in ({"upAxis": "x"}, {"metersPerUnit": "0"},
+                     {"metersPerUnit": "far"}, {"metersPerUnit": "0x10"}):
+        if not is_rejected(fixture, "VGJSON001", rejected):
             raise RuntimeError(f"invalid stage-policy argument was accepted: {rejected}")
 
     composed = Usd.Stage.CreateInMemory()
@@ -133,10 +138,10 @@ def main() -> int:
             raise RuntimeError("GeoJSON-bearing JSON fixture did not open")
         verify_point_stage(json_stage)
 
-        if not is_rejected(fixture_path(fixtures, "unrelated.json")):
+        if not is_rejected(fixture_path(fixtures, "unrelated.json"), "GJSON002"):
             raise RuntimeError("unrelated JSON was accepted as GeoJSON")
 
-        if not is_rejected(fixture_path(fixtures, "invalid.geojson")):
+        if not is_rejected(fixture_path(fixtures, "invalid.geojson"), "GJSON003"):
             raise RuntimeError("invalid GeoJSON was accepted")
 
         stage_policy = verify_stage_policy(fixture)
