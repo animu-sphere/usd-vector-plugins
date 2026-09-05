@@ -3,6 +3,7 @@
 #include "usdvector/authoring/authoring.h"
 #include "usdvector/authoring/usd_authoring.h"
 #include "usdvector/geojson/reader.h"
+#include "usdvector/plugin/read_options.h"
 
 #include <pxr/base/tf/diagnostic.h>
 #include <pxr/usd/ar/asset.h>
@@ -23,68 +24,7 @@ PXR_NAMESPACE_USING_DIRECTIVE
 
 namespace {
 
-struct ReadOptions {
-    bool strict = false;
-    bool includeProperties = true;
-    enum class GeometryMode { All, Points, Curves, Meshes, None } geometry =
-        GeometryMode::All;
-};
-
-bool ParseBoolean(const std::string& value, bool& result) {
-    if (value == "true") {
-        result = true;
-        return true;
-    }
-    if (value == "false") {
-        result = false;
-        return true;
-    }
-    return false;
-}
-
-bool ParseArguments(const SdfFileFormat::FileFormatArguments& arguments,
-                    ReadOptions& options, std::string& error) {
-    for (const auto& [name, value] : arguments) {
-        if (name.empty() || value.empty()) {
-            error = "file-format arguments must not be empty";
-            return false;
-        }
-        if (name == "strict") {
-            if (!ParseBoolean(value, options.strict)) {
-                error = "strict must be true or false";
-                return false;
-            }
-        } else if (name == "properties") {
-            if (value == "all") {
-                options.includeProperties = true;
-            } else if (value == "none") {
-                options.includeProperties = false;
-            } else {
-                error = "properties must be all or none";
-                return false;
-            }
-        } else if (name == "geometry") {
-            if (value == "all") {
-                options.geometry = ReadOptions::GeometryMode::All;
-            } else if (value == "points") {
-                options.geometry = ReadOptions::GeometryMode::Points;
-            } else if (value == "curves") {
-                options.geometry = ReadOptions::GeometryMode::Curves;
-            } else if (value == "meshes") {
-                options.geometry = ReadOptions::GeometryMode::Meshes;
-            } else if (value == "none") {
-                options.geometry = ReadOptions::GeometryMode::None;
-            } else {
-                error = "geometry must be all, points, curves, meshes, or none";
-                return false;
-            }
-        } else {
-            error = "unknown file-format argument: " + name;
-            return false;
-        }
-    }
-    return true;
-}
+using usdvector::plugin::ReadOptions;
 
 void Report(const std::vector<usdvector::Diagnostic>& diagnostics) {
     for (const usdvector::Diagnostic& diagnostic : diagnostics) {
@@ -132,7 +72,7 @@ bool ReadSource(SdfLayer* layer, const std::string& source,
                 bool metadataOnly) {
     ReadOptions options;
     std::string argumentError;
-    if (!ParseArguments(arguments, options, argumentError)) {
+    if (!usdvector::plugin::ParseReadOptions(arguments, options, argumentError)) {
         TF_RUNTIME_ERROR("VGJSON001: %s", argumentError.c_str());
         return false;
     }
@@ -178,7 +118,7 @@ bool ReadSource(SdfLayer* layer, const std::string& source,
         return false;
     }
     const auto stageResult =
-        usdvector::authoring::BuildUsdStage(*planResult.value);
+        usdvector::authoring::BuildUsdStage(*planResult.value, options.stage);
     Report(stageResult.diagnostics);
     if (!stageResult.Succeeded()) {
         return false;

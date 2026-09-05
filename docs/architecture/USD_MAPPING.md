@@ -16,7 +16,23 @@ One source feature maps to one logical feature prim. Multi geometries may add
 `part_0`, `part_1`, and subsequent children, but are never split into unrelated
 top-level features.
 
-## 2. Geometry mapping
+## 2. Stage metadata
+
+A direct read authors `/Vector` as the layer's default prim, so a composing
+layer can reference the source without naming a prim path.
+
+| Stage value | Default | Source |
+| --- | --- | --- |
+| `defaultPrim` | `Vector` | always authored |
+| `upAxis` | unauthored | the `upAxis` argument only |
+| `metersPerUnit` | unauthored | the `metersPerUnit` argument only |
+
+Neither stage value is inferred from source data, and authoring one never
+converts source coordinates. A host that requires an orientation or unit
+declaration supplies it explicitly through
+[file-format arguments](FILE_FORMAT_ARGUMENTS.md).
+
+## 3. Geometry mapping
 
 | Vector geometry | Logical feature prim | Child policy |
 | --- | --- | --- |
@@ -32,7 +48,7 @@ Meshes explicitly author `subdivisionScheme = "none"`. Winding is normalized
 before triangulation, and topology is deterministic for identical input and
 library version.
 
-## 3. Feature names
+## 4. Feature names
 
 Naming priority is:
 
@@ -43,7 +59,7 @@ Normalization produces a valid USD identifier, is locale-independent, and
 applies a deterministic suffix for collisions. Properties never determine a
 prim path. The original source ID is authored as `vector:featureId`.
 
-## 4. Properties
+## 5. Properties
 
 Properties use the `vector:properties:` namespace. Names are normalized as USD
 identifiers; `vector:propertyNames` records the normalized-to-original mapping
@@ -62,7 +78,7 @@ whenever normalization or collision handling changes a name.
 Canonical JSON fallback is UTF-8, compact, and uses lexicographically sorted
 object keys. It is a preservation mechanism, not a query-friendly schema.
 
-## 5. Metadata keys
+## 6. Metadata keys
 
 The project-defined keys below are stored in the prim's USD `customData`
 dictionary. This keeps the keys available without requiring a runtime schema

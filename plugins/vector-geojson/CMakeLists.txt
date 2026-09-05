@@ -14,6 +14,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/OpenStrataPlugin.cmake")
 openstrata_default_build_type()
 
+if(MSVC)
+    add_compile_definitions(NOMINMAX)
+endif()
+
 if(NOT pxr_FOUND)
     find_package(pxr REQUIRED CONFIG)
 endif()
@@ -36,6 +40,7 @@ set(PLUGIN_NAME UsdVectorGeoJsonFileFormat)
 
 add_library(${PLUGIN_NAME} SHARED
     src/file_format.cpp
+    src/read_options.cpp
 )
 
 target_compile_features(${PLUGIN_NAME} PRIVATE cxx_std_17)
@@ -57,6 +62,23 @@ openstrata_configure_plugin(
     TARGET ${PLUGIN_NAME}
     PLUG_INFO_INPUT "${CMAKE_CURRENT_SOURCE_DIR}/plugin/resources/vector-geojson/plugInfo.json.in"
     PLUG_INFO_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/plugin/resources/vector-geojson/plugInfo.json")
+
+if(BUILD_TESTING)
+    add_executable(vector-geojson-argument-tests
+        tests/read_options_tests.cpp
+        src/read_options.cpp)
+    target_include_directories(vector-geojson-argument-tests PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
+        ${PXR_INCLUDE_DIRS})
+    target_link_libraries(vector-geojson-argument-tests PRIVATE usdvector::authoring)
+    target_compile_options(vector-geojson-argument-tests PRIVATE
+        $<IF:$<CXX_COMPILER_ID:MSVC>,/UNDEBUG,-UNDEBUG>)
+    openstrata_link_openusd(
+        TARGET vector-geojson-argument-tests
+        COMPONENTS arch tf gf vt sdf usd)
+    add_test(NAME vector-geojson-argument-tests
+             COMMAND vector-geojson-argument-tests)
+endif()
 
 openstrata_install_plugin_bundle(
     TARGET ${PLUGIN_NAME}

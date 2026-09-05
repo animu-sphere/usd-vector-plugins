@@ -1,5 +1,6 @@
 #usda 1.0
 (
+    defaultPrim = "Vector"
     doc = """Generated from Composed Stage of root layer C:\\dev\\usd-vector-plugins\\plugins\\vector-geojson\\tests\\fixtures\\basic.geojson
 """
 )

@@ -11,6 +11,8 @@ authoring. Normalized arguments participate in layer identity.
 | `strict` | `true`, `false` | `false` | Promote documented recoverable input problems to errors. |
 | `properties` | `all`, `none` | `all` | Author or omit feature properties. IDs and dataset metadata are unaffected. |
 | `geometry` | `all`, `points`, `curves`, `meshes`, `none` | `all` | Select geometry classes while retaining each selected feature's identity. |
+| `upAxis` | `y`, `z` | unset | Author the stage up-axis. Source coordinates and axis order are unchanged. |
+| `metersPerUnit` | positive finite number | unset | Author stage units. Source coordinates are not converted. |
 
 Boolean spelling is lowercase after normalization. Unknown names, unknown
 values, duplicate keys with conflicting values, and empty values are errors.
@@ -19,6 +21,14 @@ Arguments are never silently ignored.
 `geometry=points` includes Point and MultiPoint; `curves` includes LineString
 and MultiLineString; `meshes` includes Polygon and MultiPolygon. `none` creates
 dataset metadata only and does not author feature prims.
+
+`upAxis` and `metersPerUnit` are stage declarations, not conversions. Omitting
+them leaves both stage values unauthored so a composing runtime supplies its
+own policy; supplying them authors the requested value and nothing else.
+`metersPerUnit` accepts a decimal or exponent spelling of a positive finite
+number and rejects zero, negatives, infinities, and NaN. The argument string is
+carried verbatim in layer identity, so `metersPerUnit=1` and
+`metersPerUnit=1.0` identify distinct layers with identical content.
 
 ## 2. Extension handling
 
@@ -37,8 +47,6 @@ remain available to other handlers.
 | `featureLimit=N` | Truncation metadata and deterministic ordering must be specified first. |
 | `property=name,...` | Escaping and normalization syntax need a stable design. |
 | `origin=auto|none|x,y,z` | `auto` is the only MVP precision-safe policy. |
-| `upAxis=y|z` | Direct-read stage orientation is unset by default and must be explicit when required by a host or runtime. |
-| `metersPerUnit=<positive finite number>` | Stage units are unset by default and must be explicit when required; this never converts source coordinates. |
 | `triangulate=true|false` | Polygon USD mapping requires triangulation; false has no valid MVP representation. |
 | `crs` or `targetCrs` | Reprojection belongs to explicit conversion, not implicit reads. |
 

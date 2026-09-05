@@ -34,12 +34,17 @@ supported file-format arguments, and calls the shared authoring entry point.
 
 `.geojson` is always treated as GeoJSON. `.json` is probed by the GeoJSON
 reader, so unrelated JSON is rejected with the normal file-format diagnostics.
-The supported arguments are `strict=true|false`, `properties=all|none`, and
-`geometry=all|points|curves|meshes|none`.
+The supported arguments are `strict=true|false`, `properties=all|none`,
+`geometry=all|points|curves|meshes|none`, `upAxis=y|z`, and
+`metersPerUnit=<positive finite number>`. The last two only declare stage
+values; they never convert source coordinates, and both stay unauthored when
+omitted.
 
 ## Authored OpenUSD result
 
-A successful read authors the documented `/Vector` stage hierarchy. Source
+A successful read authors the documented `/Vector` stage hierarchy and makes
+`/Vector` the layer's default prim, so a composing layer can reference the
+source without naming a prim path. Source
 coordinates remain recoverable through `vector:localOrigin` and the associated
 source metadata. Points, curves, polygon meshes, polygon holes, properties,
 and deterministic feature naming are provided by `usdVectorAuthoring`.
@@ -56,8 +61,10 @@ The aggregate plugin product installs its runtime acceptance probe at
 `share/usd-vector-plugins/probes/packaged_probe.py`. The probe loads the
 registered GeoJSON format, opens both the `.geojson` and GeoJSON-bearing
 `.json` fixtures, verifies the authored point, feature identity, typed
-property, and local-origin metadata, and confirms that unrelated JSON and
-invalid GeoJSON are rejected.
+property, and local-origin metadata, exercises the direct-read stage policy
+through default-prim composition and the stage-coordinate arguments, and
+confirms that unrelated JSON, invalid GeoJSON, and invalid argument values are
+rejected.
 
 ## Runtime and compatibility
 

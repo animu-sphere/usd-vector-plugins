@@ -49,5 +49,7 @@ install(FILES
 if(BUILD_TESTING)
     add_executable(usd-vector-core-tests tests/core_tests.cpp)
     target_link_libraries(usd-vector-core-tests PRIVATE usdvector::core)
+    target_compile_options(usd-vector-core-tests PRIVATE
+        $<IF:$<CXX_COMPILER_ID:MSVC>,/UNDEBUG,-UNDEBUG>)
     add_test(NAME usd-vector-core-tests COMMAND usd-vector-core-tests)
 endif()

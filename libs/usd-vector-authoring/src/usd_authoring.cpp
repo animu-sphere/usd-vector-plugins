@@ -10,6 +10,7 @@
 #include <pxr/usd/sdf/valueTypeName.h>
 #include <pxr/usd/usdGeom/basisCurves.h>
 #include <pxr/usd/usdGeom/mesh.h>
+#include <pxr/usd/usdGeom/metrics.h>
 #include <pxr/usd/usdGeom/points.h>
 #include <pxr/usd/usdGeom/tokens.h>
 #include <pxr/usd/usdGeom/xform.h>
@@ -327,7 +328,15 @@ bool AuthorDatasetMetadata(const UsdPrim& prim, const AuthoringPlan& plan) {
 
 }  // namespace
 
-Result<UsdStageRefPtr> BuildUsdStage(const AuthoringPlan& plan) {
+Result<UsdStageRefPtr> BuildUsdStage(const AuthoringPlan& plan,
+                                    const StageOptions& options) {
+    if (options.metersPerUnit.has_value() &&
+        !(std::isfinite(*options.metersPerUnit) &&
+          *options.metersPerUnit > 0.0)) {
+        return Result<UsdStageRefPtr>::Failure(
+            {UsdError("metersPerUnit must be a positive finite number")});
+    }
+
     const UsdStageRefPtr stage = UsdStage::CreateInMemory();
     if (!stage) {
         return Result<UsdStageRefPtr>::Failure(
@@ -342,6 +351,16 @@ Result<UsdStageRefPtr> BuildUsdStage(const AuthoringPlan& plan) {
         return Result<UsdStageRefPtr>::Failure(
             {UsdError("could not author dataset metadata")});
     }
+    stage->SetDefaultPrim(vector.GetPrim());
+    if (options.upAxis.has_value()) {
+        UsdGeomSetStageUpAxis(stage, *options.upAxis == StageUpAxis::Z
+                                         ? UsdGeomTokens->z
+                                         : UsdGeomTokens->y);
+    }
+    if (options.metersPerUnit.has_value()) {
+        UsdGeomSetStageMetersPerUnit(stage, *options.metersPerUnit);
+    }
+
     const UsdGeomXformable vectorXform(vector.GetPrim());
     const UsdGeomXformOp translate =
         vectorXform.AddTranslateOp(UsdGeomXformOp::PrecisionDouble);

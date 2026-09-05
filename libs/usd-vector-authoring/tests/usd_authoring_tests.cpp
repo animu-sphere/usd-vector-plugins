@@ -2,12 +2,15 @@
 
 #include <pxr/base/gf/vec3d.h>
 #include <pxr/base/tf/token.h>
+#include <pxr/usd/sdf/layer.h>
 #include <pxr/usd/usdGeom/basisCurves.h>
 #include <pxr/usd/usdGeom/mesh.h>
+#include <pxr/usd/usdGeom/metrics.h>
 #include <pxr/usd/usdGeom/tokens.h>
 
 #include <cassert>
 #include <cstdint>
+#include <limits>
 #include <string>
 
 PXR_NAMESPACE_USING_DIRECTIVE
@@ -84,9 +87,78 @@ void TestLinearCurveMapping() {
     assert(!curve.GetAttribute(pxr::TfToken("basis")).HasAuthoredValue());
 }
 
+usdvector::authoring::AuthoringPlan SinglePointPlan() {
+    usdvector::Feature feature;
+    feature.id = usdvector::FeatureId{std::string{"point 1"}};
+    feature.geometry = usdvector::Geometry{usdvector::Point{{2.0, 3.0}}};
+    const auto plan = usdvector::authoring::BuildAuthoringPlan(
+        usdvector::DatasetMetadata{"GeoJSON", std::nullopt, std::nullopt,
+                                   std::nullopt, 1},
+        {feature});
+    assert(plan.Succeeded());
+    return *plan.value;
+}
+
+void TestDefaultStagePolicy() {
+    const auto stage = usdvector::authoring::BuildUsdStage(SinglePointPlan());
+    assert(stage.Succeeded());
+    const pxr::UsdStageRefPtr& usdStage = *stage.value;
+
+    assert(usdStage->HasDefaultPrim());
+    assert(usdStage->GetDefaultPrim().GetPath() == pxr::SdfPath("/Vector"));
+
+    assert(usdStage->GetRootLayer()->GetDefaultPrim() ==
+           pxr::TfToken("Vector"));
+    assert(!usdStage->HasAuthoredMetadata(pxr::UsdGeomTokens->upAxis));
+    assert(!pxr::UsdGeomStageHasAuthoredMetersPerUnit(usdStage));
+}
+
+void TestExplicitStagePolicy() {
+    usdvector::authoring::StageOptions options;
+    options.upAxis = usdvector::authoring::StageUpAxis::Z;
+    options.metersPerUnit = 0.001;
+    const auto stage =
+        usdvector::authoring::BuildUsdStage(SinglePointPlan(), options);
+    assert(stage.Succeeded());
+    const pxr::UsdStageRefPtr& usdStage = *stage.value;
+
+    assert(usdStage->GetDefaultPrim().GetPath() == pxr::SdfPath("/Vector"));
+    assert(usdStage->HasAuthoredMetadata(pxr::UsdGeomTokens->upAxis));
+    assert(pxr::UsdGeomGetStageUpAxis(usdStage) == pxr::UsdGeomTokens->z);
+    assert(pxr::UsdGeomStageHasAuthoredMetersPerUnit(usdStage));
+    assert(pxr::UsdGeomGetStageMetersPerUnit(usdStage) == 0.001);
+
+    usdvector::authoring::StageOptions yUp;
+    yUp.upAxis = usdvector::authoring::StageUpAxis::Y;
+    const auto yUpStage =
+        usdvector::authoring::BuildUsdStage(SinglePointPlan(), yUp);
+    assert(yUpStage.Succeeded());
+    assert(pxr::UsdGeomGetStageUpAxis(*yUpStage.value) ==
+           pxr::UsdGeomTokens->y);
+    assert(!pxr::UsdGeomStageHasAuthoredMetersPerUnit(*yUpStage.value));
+}
+
+void TestInvalidStagePolicy() {
+    for (const double metersPerUnit :
+         {0.0, -1.0, std::numeric_limits<double>::infinity(),
+          std::numeric_limits<double>::quiet_NaN()}) {
+        usdvector::authoring::StageOptions options;
+        options.metersPerUnit = metersPerUnit;
+        const auto stage =
+            usdvector::authoring::BuildUsdStage(SinglePointPlan(), options);
+        assert(!stage.Succeeded());
+        assert(stage.diagnostics.size() == 1);
+        assert(stage.diagnostics.front().code ==
+               usdvector::DiagnosticCode::UsdAuthoringFailed);
+    }
+}
+
 }  // namespace
 
 int main() {
     TestStageMapping();
     TestLinearCurveMapping();
+    TestDefaultStagePolicy();
+    TestExplicitStagePolicy();
+    TestInvalidStagePolicy();
 }

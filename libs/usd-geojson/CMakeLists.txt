@@ -56,5 +56,7 @@ install(FILES
 if(BUILD_TESTING)
     add_executable(usd-geojson-tests tests/reader_tests.cpp)
     target_link_libraries(usd-geojson-tests PRIVATE usdvector::geojson)
+    target_compile_options(usd-geojson-tests PRIVATE
+        $<IF:$<CXX_COMPILER_ID:MSVC>,/UNDEBUG,-UNDEBUG>)
     add_test(NAME usd-geojson-tests COMMAND usd-geojson-tests)
 endif()

@@ -10,10 +10,25 @@ records are kept in [docs/releases](docs/releases/README.md).
 
 ### Added
 
+- The direct-read stage policy: `/Vector` is authored as the default prim, and
+  the new `upAxis` and `metersPerUnit` file-format arguments declare stage
+  orientation and units without converting source coordinates. Both stage
+  values stay unauthored when the arguments are omitted.
+- A `vector-geojson` argument-parsing test target, and stage-policy,
+  layer-identity, and default-prim composition coverage in the packaged
+  runtime acceptance probe.
 - Apache-2.0 repository licensing and notices.
 - Repository-wide C++ formatting configuration.
 - A canonical implementation plan for artifact completion, runtime
   composition, scalability measurement, conversion, and indexed formats.
+
+### Fixed
+
+- The packaged runtime acceptance probe now treats an OpenUSD error posted for
+  a refused source as a rejection, so its negative fixtures no longer abort the
+  probe run.
+- Test targets keep assertions enabled in release configurations, which the
+  supported OpenUSD build uses.
 
 ### Performance
 

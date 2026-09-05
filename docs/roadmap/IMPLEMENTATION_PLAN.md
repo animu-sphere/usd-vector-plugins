@@ -44,13 +44,13 @@ Improve clean build, install, package, and release reproducibility. Keep the
 root README focused on the shortest path from `UsdStage::Open` to authored
 Points, BasisCurves, and Mesh prims; keep detailed contracts in `docs/`.
 
-Define the direct-read stage policy: author `/Vector` as the default prim.
-Leave up-axis and `metersPerUnit` unset unless explicitly supplied through
-FileFormat arguments or required by the composing runtime. Expose explicit
-arguments `upAxis=y|z` and `metersPerUnit=<positive finite number>` without
-using either as an implicit source conversion. Preserve source CRS and source
-coordinate semantics separately. Add default-prim, override, invalid-value,
-layer-identity, and composition tests before marking the capability complete.
+The direct-read stage policy is defined and implemented: `/Vector` is the
+authored default prim, up-axis and `metersPerUnit` stay unset unless supplied
+through the explicit `upAxis=y|z` and `metersPerUnit=<positive finite number>`
+arguments, and neither argument converts source coordinates or source CRS
+semantics. Default-prim, override, invalid-value, layer-identity, and
+composition coverage is in the authoring tests, the plugin argument tests, and
+the packaged runtime probe.
 
 ### Phase 2: Establish the M5 scalability contract
 
