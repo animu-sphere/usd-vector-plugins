@@ -402,6 +402,9 @@ void FeaturePlanBuilder::Add(const Feature& feature) {
         !BoundsEqual(*feature.declaredBounds, ComputeBounds(feature.geometry))) {
         diagnostics_.push_back(
             BoundsDiagnostic(featureIndex, feature, options_.strict));
+        if (options_.strict) {
+            return;
+        }
     }
 
     auto geometry = MakeGeometryPlan(feature.geometry, localOrigin_);

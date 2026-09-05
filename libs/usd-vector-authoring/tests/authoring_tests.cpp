@@ -306,6 +306,22 @@ void TestStrictDiagnosticsAndDeclaredBounds() {
     assert(strictBounds.diagnostics[0].code ==
            usdvector::DiagnosticCode::BoundsMismatch);
     assert(strictBounds.diagnostics[0].severity == usdvector::Severity::Error);
+
+    std::vector<usdvector::authoring::FeaturePlan> strictStreamed;
+    const auto sourceBounds =
+        usdvector::ComputeBounds(std::vector<usdvector::Feature>{first});
+    usdvector::authoring::FeaturePlanBuilder strictBuilder(
+        usdvector::DatasetMetadata{"GeoJSON", std::nullopt, std::nullopt,
+                                   std::nullopt, 1},
+        sourceBounds,
+        [&strictStreamed](usdvector::authoring::FeaturePlan&& feature) {
+            strictStreamed.push_back(std::move(feature));
+        },
+        usdvector::authoring::AuthoringOptions{true});
+    strictBuilder.Add(first);
+    const auto strictStreamedResult = strictBuilder.Finish();
+    assert(!strictStreamedResult.Succeeded());
+    assert(strictStreamed.empty());
 }
 
 void TestDirectTriangulationRejectsNonFiniteCoordinates() {
