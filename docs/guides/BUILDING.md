@@ -34,15 +34,18 @@ Point CMake at an OpenUSD installation using the cache variable selected by
 the root build, then build and test:
 
 ```powershell
-cmake -S . -B build/full -G Ninja -Dpxr_DIR=C:\path\to\openusd\lib\cmake\pxr
+cmake -S . -B build/full -G Ninja -DUSDVECTOR_ENABLE_OPENUSD=ON `
+    -Dpxr_DIR=C:\path\to\openusd\lib\cmake\pxr
 cmake --build build/full
 ctest --test-dir build/full --output-on-failure
 ```
 
-This enables the `usdVectorAuthoring` stage-emission path and the
-`vector-geojson` FileFormat plugin. The supported plugin runtime range is
-OpenUSD `>=26.08,<27.0`; a successful compile against an unlisted version does
-not make that version supported.
+This enables the `usdVectorAuthoring` stage-emission path, its stage-emission
+tests, the `vector-geojson` FileFormat plugin, and the plugin argument tests.
+Test targets are compiled with `NDEBUG` undefined so their assertions stay
+active in the release configuration the OpenUSD runtime is built with. The
+supported plugin runtime range is OpenUSD `>=26.08,<27.0`; a successful compile
+against an unlisted version does not make that version supported.
 
 ## OpenStrata build
 

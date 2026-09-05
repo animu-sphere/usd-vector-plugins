@@ -68,8 +68,8 @@ not planned                   explicitly outside project scope
 | Double-precision internal coordinates | implemented | all geometry processing |
 | Deterministic local origin | implemented | bounds-center origin in the authoring plan and stage emitter |
 | Source-coordinate recovery metadata | implemented | `vector:localOrigin` and source bounds |
-| Direct-read default prim | planned | `/Vector` is authored as the default prim |
-| Direct-read stage coordinate policy | planned | `upAxis` and `metersPerUnit` are unset by default and explicit when required |
+| Direct-read default prim | implemented | `/Vector` is authored as the default prim |
+| Direct-read stage coordinate policy | implemented | `upAxis` and `metersPerUnit` are unset by default and explicit when required |
 | Reprojection | not planned | explicit converter/host responsibility |
 | One logical prim per feature | implemented | identity before geometry authoring |
 | Deterministic prim paths | implemented | source ID, then sequence |
@@ -77,8 +77,8 @@ not planned                   explicitly outside project scope
 
 ## File-format arguments
 
-`strict`, `properties`, and `geometry` are implemented. Stage coordinate policy
-arguments are planned. The normative value and default table is
+`strict`, `properties`, `geometry`, `upAxis`, and `metersPerUnit` are
+implemented. The normative value and default table is
 [FILE_FORMAT_ARGUMENTS.md](../architecture/FILE_FORMAT_ARGUMENTS.md).
 
 ## Known MVP limitations

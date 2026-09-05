@@ -88,11 +88,15 @@ install(FILES
 if(BUILD_TESTING)
     add_executable(usd-vector-authoring-tests tests/authoring_tests.cpp)
     target_link_libraries(usd-vector-authoring-tests PRIVATE usdvector::authoring)
+    target_compile_options(usd-vector-authoring-tests PRIVATE
+        $<IF:$<CXX_COMPILER_ID:MSVC>,/UNDEBUG,-UNDEBUG>)
     add_test(NAME usd-vector-authoring-tests COMMAND usd-vector-authoring-tests)
 
     if(USDVECTOR_ENABLE_OPENUSD)
         add_executable(usd-vector-authoring-usd-tests tests/usd_authoring_tests.cpp)
         target_link_libraries(usd-vector-authoring-usd-tests PRIVATE usdvector::authoring)
+        target_compile_options(usd-vector-authoring-usd-tests PRIVATE
+            $<IF:$<CXX_COMPILER_ID:MSVC>,/UNDEBUG,-UNDEBUG>)
         add_test(NAME usd-vector-authoring-usd-tests COMMAND usd-vector-authoring-usd-tests)
     endif()
 endif()
