@@ -16,7 +16,7 @@ are available.
 | [reference/](reference/) | What input is accepted and which diagnostics are stable. | [CAPABILITY_MATRIX.md](reference/CAPABILITY_MATRIX.md), [DIAGNOSTICS.md](reference/DIAGNOSTICS.md) |
 | [guides/](guides/) | How to build and install the project. | [BUILDING.md](guides/BUILDING.md), [INSTALL.md](guides/INSTALL.md) |
 | [roadmap/](roadmap/) | What will be implemented and in which order. | [README.md](roadmap/README.md), [IMPLEMENTATION_PLAN.md](roadmap/IMPLEMENTATION_PLAN.md) |
-| [reports/](reports/) | Measured acceptance evidence and reproducibility records. | [SCALABILITY_BASELINE.md](reports/SCALABILITY_BASELINE.md) |
+| [reports/](reports/) | Measured acceptance evidence, reproducibility records, and OpenStrata adoption findings. | [SCALABILITY_BASELINE.md](reports/SCALABILITY_BASELINE.md), [ost/README.md](reports/ost/README.md) |
 | [releases/](releases/) | Immutable records for tagged releases. | [README.md](releases/README.md) |
 
 The roadmap files have distinct roles:
@@ -26,6 +26,8 @@ The roadmap files have distinct roles:
    canonical future sequence and release strategy.
 - [roadmap/FORMAT_EXPANSION.md](roadmap/FORMAT_EXPANSION.md) defines the gates
    a second format must pass.
+- [roadmap/RELEASE_PLAN_v0.2.0.md](roadmap/RELEASE_PLAN_v0.2.0.md) is the
+   active release plan for the M6 runtime-composition story.
 
 ## The one-sentence version
 
