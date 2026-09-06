@@ -28,6 +28,10 @@ The canonical sequence, gates, and completion conditions are in
 [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md). This file records current
 status; it does not duplicate the implementation plan.
 
+The active release is planned in
+[RELEASE_PLAN_v0.2.0.md](RELEASE_PLAN_v0.2.0.md), which carries the M6
+runtime-composition story and the release-path corrections it requires.
+
 ## MVP gates
 
 1. Core and GeoJSON tests pass without OpenUSD.
@@ -49,6 +53,9 @@ covered by the appropriate test tier.
 
 Rules for admitting a second format are in
 [FORMAT_EXPANSION.md](FORMAT_EXPANSION.md).
+
+The release-provenance failure that motivated the v0.2.0 plan is recorded in
+[OST report 02](../reports/ost/02-2026-09-06-v0.22.8-release-provenance-dogfooding.md).
 
 The current M5 baseline and reproduction procedure are recorded in
 [SCALABILITY_BASELINE.md](../reports/SCALABILITY_BASELINE.md).
