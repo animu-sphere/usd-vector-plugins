@@ -168,7 +168,7 @@ jobs:
             | tee release-stage/product-push.json
           ost artifact resolve "$PRODUCT_REPOSITORY:v${version}" --json \
             | tee release-stage/product-resolve.json
-          oci_digest="$(python -c 'import json, sys; payload=json.load(sys.stdin); print(payload.get("data", {}).get("digest") or payload.get("digest") or payload.get("data", {}).get("oci_digest", ""))' < release-stage/product-resolve.json)"
+          oci_digest="$(python -c 'import json, sys; payload=json.load(sys.stdin); data=payload.get("data", {}); resolved=data.get("resolved", {}); print(data.get("digest") or payload.get("digest") or data.get("oci_digest") or resolved.get("oci_digest", ""))' < release-stage/product-resolve.json)"
           case "$oci_digest" in
             sha256:*) ;;
             *) echo "Could not resolve the published OCI digest" >&2; exit 1 ;;
