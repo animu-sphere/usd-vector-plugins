@@ -14,6 +14,8 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  packages: write
 
 concurrency:
   group: release-${{ github.ref }}
@@ -26,6 +28,7 @@ env:
   OST_PROFILE: usd
   RUNTIME_ARTIFACT: sha256:ebb0c7da509ee14ada19ee5b461de6996aad0024b5c9640f12dde76912e849b5
   RUNTIME_REMOTE: oci://ghcr.io/animu-sphere/openstrata-runtime-cy2026-usd@sha256:d3ff79a6f330558c3b9a427a927d340fe3dcab1fe89107faa0ea9f66a104b7bf
+  PRODUCT_REPOSITORY: oci://ghcr.io/animu-sphere/usd-vector-plugins
 
 jobs:
   build:
@@ -109,7 +112,15 @@ jobs:
           ost plugin test plugins/vector-geojson \
             --target "$OST_PLATFORM" --profile "$OST_PROFILE" --up-to 5 --json
 
-      - name: Package release artifacts
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package and publish release artifacts
+        id: package-release
         shell: bash
         run: |
           set -euo pipefail
@@ -140,7 +151,58 @@ jobs:
           test -f release-stage/NOTICE
           test -f release-stage/THIRD_PARTY_NOTICES.md
           test -f "release-stage/v${version}.md"
+
+          python tools/check_release_metadata.py \
+            --product-manifest "$product_dir/manifest.json"
+          ost artifact import "$product_dir" --json \
+            | tee release-stage/product-import.json
+          product_digest="$(python -c 'import json, sys; print(json.load(sys.stdin)["data"]["artifact"]["digest"])' < release-stage/product-import.json)"
+          test -n "$product_digest"
+          ost artifact verify "$product_digest" --minimum-trust local \
+            --require-sbom --json | tee release-stage/product-verify.json
+          ost artifact push "$product_digest" \
+            "$PRODUCT_REPOSITORY:v${version}" --json \
+            | tee release-stage/product-push.json
+          ost artifact resolve "$PRODUCT_REPOSITORY:v${version}" --json \
+            | tee release-stage/product-resolve.json
+          oci_digest="$(python -c 'import json, sys; payload=json.load(sys.stdin); print(payload.get("data", {}).get("digest") or payload.get("digest") or payload.get("data", {}).get("oci_digest", ""))' < release-stage/product-resolve.json)"
+          case "$oci_digest" in
+            sha256:*) ;;
+            *) echo "Could not resolve the published OCI digest" >&2; exit 1 ;;
+          esac
+          printf '%s@%s\n' "$PRODUCT_REPOSITORY" "$oci_digest" \
+            > release-stage/usd-vector-plugins.oci-reference
+          printf '%s\n' "$oci_digest" > release-stage/usd-vector-plugins.oci-digest
+          echo "product_digest=$product_digest" >> "$GITHUB_OUTPUT"
+          echo "oci_digest=$oci_digest" >> "$GITHUB_OUTPUT"
           test -n "$(find release-stage -type f -print -quit)"
+
+      - name: Attest product provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/animu-sphere/usd-vector-plugins
+          subject-digest: ${{ steps.package-release.outputs.oci_digest }}
+          push-to-registry: true
+
+      - name: Attest product SBOM
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ghcr.io/animu-sphere/usd-vector-plugins
+          subject-digest: ${{ steps.package-release.outputs.oci_digest }}
+          sbom-path: release-stage/usd-vector-plugins.sbom.spdx.json
+          push-to-registry: true
+
+      - name: Verify published product evidence
+        shell: bash
+        env:
+          PRODUCT_DIGEST: ${{ steps.package-release.outputs.product_digest }}
+          OCI_DIGEST: ${{ steps.package-release.outputs.oci_digest }}
+        run: |
+          set -euo pipefail
+          ost artifact pull "$PRODUCT_REPOSITORY@$OCI_DIGEST" \
+            --expect-artifact "$PRODUCT_DIGEST" \
+            --require-kind product --require-sbom --require-provenance --json \
+            | tee release-stage/product-pull-verify.json
 
       - name: Upload platform release assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -198,6 +260,16 @@ jobs:
             | LC_ALL=C sort | xargs sha256sum > SHA256SUMS
           sha256sum -c SHA256SUMS
           cp "../docs/releases/v${VERSION}.md" RELEASE_NOTES.md
+          if [ -f usd-vector-plugins.oci-reference ]; then
+            {
+              echo
+              echo '## OCI reference'
+              echo
+              echo 'The composable product was published by the packaging job at:'
+              echo
+              printf '`%s`\n' "$(cat usd-vector-plugins.oci-reference)"
+            } >> RELEASE_NOTES.md
+          fi
           {
             echo
             echo '## Artifacts'
