@@ -490,8 +490,8 @@ Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy, bool readerOnly,
 #if defined(USDVECTOR_ENABLE_OPENUSD)
         const auto emissionStart = Clock::now();
         auto stage = usdvector::authoring::BuildUsdStage(*plan.value);
-    const auto emitted = Clock::now();
-    if (!stage.Succeeded()) {
+        const auto emitted = Clock::now();
+        if (!stage.Succeeded()) {
             throw std::runtime_error("benchmark USD stage could not be built");
         }
         std::string flattened;

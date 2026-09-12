@@ -42,6 +42,9 @@ the completed plan vector, and it does not emit USD. The CSV
 `authoring_mode` column identifies `batch` versus `incremental`; the existing
 `authoring_plan_ms` column measures the corresponding planning phase for both
 modes, including feature-to-plan work in incremental mode.
+Because incremental mode completes metadata before iteration, its
+`time_to_first_feature_ms` includes that bounds scan; use it as the time until
+the first feature is available after the required metadata pass.
 
 To measure bounded reader batches, add `--batch-size N`. The benchmark keeps
 the first-feature timing from `ReadNext`, then consumes the remaining features
