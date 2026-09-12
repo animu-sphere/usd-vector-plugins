@@ -27,6 +27,25 @@ process with `--reader-only`:
     --reader lazy --reader-only --case points --count 1000
 ```
 
+To measure bounded authoring planning, add `--authoring incremental`:
+
+```powershell
+.\build\m5\tools\usd-vector-benchmark\usd-vector-benchmark.exe `
+    --reader lazy --authoring incremental --batch-size 256 `
+    --case points --count 10000
+```
+
+Incremental mode completes metadata first to establish the source bounds, then
+sends each feature from the bounded reader batches directly to
+`FeaturePlanBuilder` and a no-op sink. It does not retain the feature vector or
+the completed plan vector, and it does not emit USD. The CSV
+`authoring_mode` column identifies `batch` versus `incremental`; the existing
+`authoring_plan_ms` column measures the corresponding planning phase for both
+modes, including feature-to-plan work in incremental mode.
+Because incremental mode completes metadata before iteration, its
+`time_to_first_feature_ms` includes that bounds scan; use it as the time until
+the first feature is available after the required metadata pass.
+
 To measure bounded reader batches, add `--batch-size N`. The benchmark keeps
 the first-feature timing from `ReadNext`, then consumes the remaining features
 through `FeatureReader::ReadBatch`; `batch_count` and `max_batch_features` in
@@ -98,6 +117,7 @@ until a two-pass or reopenable source workflow is measured and adopted.
 | `retained_feature_bytes` | Estimated feature, geometry, and property capacity retained by the full benchmark workflow, not an allocator trace. Reader-only mode reports zero because each materialized feature is discarded after counting. |
 | `batch_count` | Number of non-empty `ReadBatch` results consumed after the first feature when `--batch-size` is enabled. Zero when there are no remaining features or compatibility mode uses `ReadNext`. |
 | `max_batch_features` | Largest non-empty `ReadBatch` result after the first feature. Zero when there are no remaining features or compatibility mode uses `ReadNext`. |
+| `authoring_mode` | Authoring path: `batch` retains all features and builds one `AuthoringPlan`; `incremental` feeds bounded batches to `FeaturePlanBuilder` and retains neither feature nor plan vectors. |
 | `usd_emission_ms` | OpenUSD-enabled builds only. |
 | `flattened_layer_bytes` | OpenUSD-enabled builds only; serialized root layer size. |
 

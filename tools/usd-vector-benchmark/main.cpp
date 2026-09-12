@@ -41,6 +41,11 @@ struct BenchmarkCase {
     std::size_t count;
 };
 
+enum class AuthoringMode {
+    Batch,
+    Incremental,
+};
+
 struct Metrics {
     std::string reader;
     std::string name;
@@ -57,6 +62,7 @@ struct Metrics {
     std::size_t retainedFeatureBytes = 0;
     std::size_t batchCount = 0;
     std::size_t maxBatchFeatures = 0;
+    AuthoringMode authoringMode = AuthoringMode::Batch;
 #if defined(USDVECTOR_ENABLE_OPENUSD)
     std::optional<double> usdEmissionMilliseconds;
     std::optional<std::size_t> flattenedLayerBytes;
@@ -352,15 +358,15 @@ std::string DiagnosticSummary(const std::vector<usdvector::Diagnostic>& diagnost
 }
 
 Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy, bool readerOnly,
-                std::size_t batchSize) {
+                std::size_t batchSize, AuthoringMode authoringMode) {
     Metrics metrics;
     metrics.reader = lazy ? "lazy" : "buffered";
     metrics.name = benchmarkCase.name;
     metrics.requestedCount = benchmarkCase.count;
+    metrics.authoringMode = authoringMode;
     std::string source = BuildSource(benchmarkCase);
     metrics.sourceBytes = source.size();
     metrics.copiedBytes = 0;
-
     const auto openStart = Clock::now();
     auto reader = lazy
                       ? usdvector::geojson::Reader::CreateLazy(std::move(source))
@@ -374,6 +380,20 @@ Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy, bool readerOnly,
         std::chrono::duration<double, std::milli>(opened - openStart).count();
     metrics.timeToOpenMilliseconds = metrics.parseMilliseconds;
 
+    std::optional<usdvector::DatasetMetadata> metadata;
+    std::optional<usdvector::authoring::FeaturePlanBuilder> incrementalBuilder;
+    if (!readerOnly && authoringMode == AuthoringMode::Incremental) {
+        auto completeMetadata = reader.value->ReadMetadata();
+        if (!completeMetadata.Succeeded() ||
+            !completeMetadata.value->computedBounds.has_value()) {
+            throw std::runtime_error(
+                "benchmark reader metadata could not establish source bounds");
+        }
+        metadata = *completeMetadata.value;
+        incrementalBuilder.emplace(
+            *metadata, *metadata->computedBounds,
+            [](usdvector::authoring::FeaturePlan&&) {});
+    }
     auto first = reader.value->ReadNext();
     const auto firstFeature = Clock::now();
     if (!first.Succeeded() || !first.value.has_value() ||
@@ -384,14 +404,25 @@ Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy, bool readerOnly,
         std::chrono::duration<double, std::milli>(firstFeature - openStart).count();
 
     std::vector<usdvector::Feature> features;
-    const auto recordFeature = [&features, &metrics, readerOnly](
-                                  usdvector::Feature feature) {
+    const auto recordFeature = [&features, &metrics, &incrementalBuilder,
+                                authoringMode, readerOnly](
+                                   usdvector::Feature feature) {
         ++metrics.featureCount;
         metrics.vertexCount += GeometryVertexCount(feature.geometry);
-        if (!readerOnly) {
-            metrics.retainedFeatureBytes += FeatureBytes(feature);
-            features.push_back(std::move(feature));
+        if (readerOnly) {
+            return;
         }
+        if (authoringMode == AuthoringMode::Incremental) {
+            const auto authoringStart = Clock::now();
+            incrementalBuilder->Add(feature);
+            metrics.authoringMilliseconds +=
+                std::chrono::duration<double, std::milli>(Clock::now() -
+                                                           authoringStart)
+                    .count();
+            return;
+        }
+        metrics.retainedFeatureBytes += FeatureBytes(feature);
+        features.push_back(std::move(feature));
     };
     recordFeature(std::move(first.value->value()));
     if (batchSize > 0) {
@@ -425,16 +456,29 @@ Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy, bool readerOnly,
         }
     }
 
-    auto metadata = reader.value->ReadMetadata();
-    if (!metadata.Succeeded()) {
-        throw std::runtime_error("benchmark reader metadata could not be read: " +
-                                 DiagnosticSummary(metadata.diagnostics));
-    }
-
-    if (!readerOnly) {
+    if (!readerOnly && authoringMode == AuthoringMode::Incremental) {
         const auto authoringStart = Clock::now();
-        auto plan = usdvector::authoring::BuildAuthoringPlan(
-            *metadata.value, features);
+        const auto finished = incrementalBuilder->Finish();
+        if (!finished.Succeeded()) {
+            throw std::runtime_error(
+                "benchmark incremental authoring could not be completed: " +
+                DiagnosticSummary(finished.diagnostics));
+        }
+        metrics.authoringMilliseconds +=
+            std::chrono::duration<double, std::milli>(Clock::now() -
+                                                       authoringStart)
+                .count();
+    } else if (!readerOnly) {
+        auto metadataResult = reader.value->ReadMetadata();
+        if (!metadataResult.Succeeded()) {
+            throw std::runtime_error(
+                "benchmark reader metadata could not be read: " +
+                DiagnosticSummary(metadataResult.diagnostics));
+        }
+        metadata = *metadataResult.value;
+
+        const auto authoringStart = Clock::now();
+        auto plan = usdvector::authoring::BuildAuthoringPlan(*metadata, features);
         const auto authored = Clock::now();
         if (!plan.Succeeded()) {
             throw std::runtime_error("benchmark authoring plan could not be built: " +
@@ -464,11 +508,15 @@ Metrics Measure(const BenchmarkCase& benchmarkCase, bool lazy, bool readerOnly,
     return metrics;
 }
 
+const char* AuthoringModeName(AuthoringMode mode) {
+    return mode == AuthoringMode::Incremental ? "incremental" : "batch";
+}
+
 bool WriteHeader(std::ostream& output) {
     output << "reader,case,requested_count,source_bytes,features,vertices,parse_ms,"
               "time_to_first_feature_ms,authoring_plan_ms,time_to_open_ms,"
               "peak_rss_bytes,copied_bytes,retained_feature_bytes,batch_count,"
-              "max_batch_features";
+              "max_batch_features,authoring_mode";
 #if defined(USDVECTOR_ENABLE_OPENUSD)
     output << ",usd_emission_ms,flattened_layer_bytes";
 #endif
@@ -485,7 +533,8 @@ bool WriteMetrics(std::ostream& output, const Metrics& metrics) {
            << ',' << metrics.authoringMilliseconds << ','
            << metrics.timeToOpenMilliseconds << ',' << metrics.peakRssBytes << ','
            << metrics.copiedBytes << ',' << metrics.retainedFeatureBytes << ','
-           << metrics.batchCount << ',' << metrics.maxBatchFeatures;
+           << metrics.batchCount << ',' << metrics.maxBatchFeatures << ','
+           << AuthoringModeName(metrics.authoringMode);
 #if defined(USDVECTOR_ENABLE_OPENUSD)
     output << ',';
     if (metrics.usdEmissionMilliseconds.has_value()) {
@@ -521,8 +570,9 @@ std::vector<BenchmarkCase> Cases(const std::optional<std::string>& selected,
 }
 
 void PrintUsage() {
-    std::cerr << "usage: usd-vector-benchmark [--reader MODE] [--reader-only] [--batch-size N] [--case NAME] [--count N] [--output FILE]\n"
+    std::cerr << "usage: usd-vector-benchmark [--reader MODE] [--authoring MODE] [--reader-only] [--batch-size N] [--case NAME] [--count N] [--output FILE]\n"
                  "readers: buffered, lazy\n"
+                 "authoring: batch, incremental\n"
                  "cases: points, lines, large-polygon, small-polygons, "
                  "property-heavy, large-coordinates\n";
 }
@@ -533,6 +583,7 @@ int main(int argc, char** argv) {
     bool lazy = false;
     bool readerOnly = false;
     std::size_t batchSize = 0;
+    AuthoringMode authoringMode = AuthoringMode::Batch;
     std::optional<std::string> selectedCase;
     std::size_t count = 1000;
     std::optional<std::string> outputPath;
@@ -547,6 +598,16 @@ int main(int argc, char** argv) {
             lazy = reader == "lazy";
         } else if (argument == "--reader-only") {
             readerOnly = true;
+        } else if (argument == "--authoring" && index + 1 < argc) {
+            const std::string authoring = argv[++index];
+            if (authoring == "batch") {
+                authoringMode = AuthoringMode::Batch;
+            } else if (authoring == "incremental") {
+                authoringMode = AuthoringMode::Incremental;
+            } else {
+                std::cerr << "--authoring must be batch or incremental\n";
+                return 2;
+            }
         } else if (argument == "--batch-size" && index + 1 < argc) {
             if (!ParseCount(argv[++index], batchSize)) {
                 std::cerr << "--batch-size must be a positive integer\n";
@@ -573,6 +634,10 @@ int main(int argc, char** argv) {
         std::cerr << "--count must be greater than zero\n";
         return 2;
     }
+    if (readerOnly && authoringMode == AuthoringMode::Incremental) {
+        std::cerr << "--authoring incremental cannot be combined with --reader-only\n";
+        return 2;
+    }
 
     std::ofstream file;
     std::ostream* output = &std::cout;
@@ -592,7 +657,7 @@ int main(int argc, char** argv) {
         }
         for (const auto& benchmarkCase : Cases(selectedCase, count)) {
             const Metrics metrics =
-                Measure(benchmarkCase, lazy, readerOnly, batchSize);
+                Measure(benchmarkCase, lazy, readerOnly, batchSize, authoringMode);
             if (!WriteMetrics(*output, metrics)) {
                 std::cerr << "could not write benchmark output\n";
                 return 1;
