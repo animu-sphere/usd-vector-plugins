@@ -6,7 +6,7 @@ The release sequence is maintained in
 [the implementation plan](docs/roadmap/IMPLEMENTATION_PLAN.md). Release
 records are kept in [docs/releases](docs/releases/README.md).
 
-## [Unreleased]
+## [0.2.0] - 2026-09-12
 
 ### Added
 

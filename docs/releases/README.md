@@ -6,6 +6,7 @@ The record is prepared in the release commit immediately before the tag.
 
 | Version | Date | Record |
 | --- | --- | --- |
+| v0.2.0 | 2026-09-12 | [v0.2.0.md](v0.2.0.md) - Runtime-composable GeoJSON product and release provenance gate |
 | v0.1.0 | 2026-09-04 | [v0.1.0.md](v0.1.0.md) - GeoJSON vertical slice |
 
 ## Release gate

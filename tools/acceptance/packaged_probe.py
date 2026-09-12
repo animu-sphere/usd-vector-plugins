@@ -58,6 +58,13 @@ def verify_point_stage(stage) -> None:
         raise RuntimeError("GeoJSON local-origin metadata is incorrect")
 
 
+def authored_feature_count(stage) -> int:
+    features = stage.GetPrimAtPath("/Vector/Features")
+    if not features:
+        raise RuntimeError("GeoJSON fixture did not author /Vector/Features")
+    return len(features.GetChildren())
+
+
 def verify_stage_policy(fixture: Path) -> dict:
     """Check the direct-read stage policy: default prim, unset stage metrics,
     explicit overrides, rejected values, and default-prim composition."""
@@ -132,6 +139,20 @@ def main() -> int:
         if not stage:
             raise RuntimeError("packaged GeoJSON fixture did not open")
         verify_point_stage(stage)
+        feature_count = authored_feature_count(stage)
+        if feature_count <= 0:
+            raise RuntimeError("GeoJSON fixture authored no features")
+
+        multi_layer, multi_stage = open_stage(
+            fixture_path(fixtures, "multi.geojson")
+        )
+        if not multi_stage:
+            raise RuntimeError("multi-feature GeoJSON fixture did not open")
+        multi_feature_count = authored_feature_count(multi_stage)
+        if multi_feature_count != 2:
+            raise RuntimeError(
+                "multi-feature GeoJSON fixture authored an unexpected feature count"
+            )
 
         json_layer, json_stage = open_stage(fixture_path(fixtures, "basic.json"))
         if not json_stage:
@@ -166,6 +187,8 @@ def main() -> int:
                 "unrelatedJsonRejected": True,
                 "invalidGeoJsonRejected": True,
                 "pointCount": len(point_values),
+                "featureCount": feature_count,
+                "multiFeatureCount": multi_feature_count,
                 "featureId": feature_id,
                 "propertyName": properties,
                 "localOrigin": list(vector_data["localOrigin"]),
