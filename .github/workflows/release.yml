@@ -122,6 +122,9 @@ jobs:
       - name: Package and publish release artifacts
         id: package-release
         shell: bash
+        env:
+          OST_REGISTRY_USER: ${{ github.actor }}
+          OST_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p release-stage
