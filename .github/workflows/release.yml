@@ -190,8 +190,7 @@ jobs:
         with:
           subject-name: ghcr.io/animu-sphere/usd-vector-plugins
           subject-digest: ${{ steps.package-release.outputs.oci_digest }}
-          github-token: ${{ secrets.GHCR_TOKEN }}
-          push-to-registry: true
+          push-to-registry: false
 
       - name: Attest product SBOM
         uses: actions/attest-sbom@v2
@@ -199,8 +198,7 @@ jobs:
           subject-name: ghcr.io/animu-sphere/usd-vector-plugins
           subject-digest: ${{ steps.package-release.outputs.oci_digest }}
           sbom-path: release-stage/usd-vector-plugins.sbom.spdx.json
-          github-token: ${{ secrets.GHCR_TOKEN }}
-          push-to-registry: true
+          push-to-registry: false
 
       - name: Verify published product evidence
         shell: bash
