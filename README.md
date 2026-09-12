@@ -34,10 +34,13 @@ the complete geometry, property, and metadata mapping.
 
 ## Status
 
-The OpenUSD-independent `usdVectorCore` model and buffered `usdGeoJson` reader
-are implemented and tested. The authoring library emits an in-memory OpenUSD
-stage, and the GeoJSON FileFormat bundle is built from the generated OpenStrata
-template and verified against the pinned runtime.
+The OpenUSD-independent `usdVectorCore` model and the buffered and cursor-based
+lazy `usdGeoJson` readers are implemented and tested. Shared bounded feature
+batches and incremental authoring plans are available for measured large-data
+workloads; the production GeoJSON FileFormat path remains buffered until a
+reopenable two-pass source workflow is adopted. The authoring library emits an
+in-memory OpenUSD stage, and the GeoJSON FileFormat bundle is built from the
+generated OpenStrata template and verified against the pinned runtime.
 
 | Milestone | Scope | Status |
 | --- | --- | --- |
@@ -46,7 +49,7 @@ template and verified against the pinned runtime.
 | M2 | `usdGeoJson` FeatureCollection reader and MVP geometries | done |
 | M3 | OpenUSD authoring, triangulation, local-origin metadata | done |
 | M4 | FileFormat registration, `ArAsset`, arguments, integration tests | done: OpenStrata L0-L5 verified |
-| M5 | Scalability baseline and evidence-led bounded-memory improvements | in progress: baseline, cursor-based lazy materialization, and shared bounded batches |
+| M5 | Scalability baseline and evidence-led bounded-memory improvements | done: cursor-based lazy materialization, shared bounded batches, and bounded authoring plans |
 | M6 | Runtime composition validation with `usd-geospatial-runtime` | in progress: packaged local-runtime probe; external composition pending |
 | M7 | FlatGeobuf architecture validation | deferred |
 | M8 | Indexed partial-read and selective-composition contract | deferred |
@@ -64,6 +67,14 @@ ctest --test-dir build/core --output-on-failure
 Build the optional M5 scalability runner with
 `-DUSDVECTOR_ENABLE_BENCHMARKS=ON`. Its reproduction procedure and captured
 baseline are in [docs/reports/SCALABILITY_BASELINE.md](docs/reports/SCALABILITY_BASELINE.md).
+For example, this measures the lazy reader with bounded batches and bounded
+authoring planning:
+
+```powershell
+.\build\m5\tools\usd-vector-benchmark\usd-vector-benchmark.exe `
+    --reader lazy --authoring incremental --batch-size 256 `
+    --case points --count 10000
+```
 
 The OpenStrata workspace manifests are provided for the pinned `cy2026` /
 `usd` environment:
@@ -79,3 +90,6 @@ contracts. External dependencies are bounded under [third_party](third_party)
 and documented in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 The ordered implementation plan is documented in
 [docs/roadmap/IMPLEMENTATION_PLAN.md](docs/roadmap/IMPLEMENTATION_PLAN.md).
+Release artifacts are checked against the pinned runtime digest and carry
+SBOM/provenance evidence; placement and cross-component composition remain
+owned by `usd-geospatial-runtime`.
